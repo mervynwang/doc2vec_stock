@@ -1,14 +1,31 @@
 #!/usr/bin/python3
 
+
+import sys, time
+
+import numpy as np
+import scipy.interpolate as si
+
+from datetime import datetime
+from time import sleep, time
+from random import uniform, randint
+
+
 import requests
 import argparse
-import urllib.parse
 
 from fake_useragent import UserAgent
 from googlesearch import search
 
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 
-# from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 
 
 
@@ -17,9 +34,22 @@ from googlesearch import search
 # ua.firefox
 # ua.chrome
 
+# Randomization Related
+MIN_RAND        = 0.64
+MAX_RAND        = 1.27
+LONG_MIN_RAND   = 4.78
+LONG_MAX_RAND = 11.1
+
 
 
 class collect(object):
+
+	number = None
+	headless = False
+	options = None
+	profile = None
+	capabilities = None
+
 	"""docstring for collect"""
 	def __init__(self):
 		super(collect, self).__init__()
@@ -33,12 +63,14 @@ class collect(object):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
 		parser.add_argument('-s', '--ticker', type=str, help='stock name')
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
-		parser.add_argument('-g', '--google', type=str, help='google search api key')
+		parser.add_argument('-a', '--account', type=str, help='news account')
+		parser.add_argument('-p', '--password', type=str, help='news account password')
 		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info')
 		args = parser.parse_args()
 		self.ticker = args.ticker
 		self.tiingo = args.tiingo
-		self.google = args.google
+		self.account = args.account
+		self.password = args.password
 		self.debug = args.debug
 		return args
 
@@ -98,44 +130,187 @@ class collect(object):
 			):
 			print(link)
 
-	def gapi(self, site, **kwargs):
-		if self.google == None :
-			return
-		try:
-			ff = self.site[site]
-		except KeyError:
-			print('site not exist ' + site)
-			return
+	# Setup options for webdriver
+	def setUpOptions(self):
+		self.options = webdriver.FirefoxOptions()
+		# self.options.add_option('useAutomationExtension', False)
+		self.options.headless = self.headless
 
-		cse_id = ""
+	# Setup profile with buster captcha solver
+	def setUpProfile(self):
+		ua = UserAgent()
+		fua = ua.random
+		print(fua)
 
-		key = self.google
-		query_service = build("customsearch", "v1", developerKey=key)
-		query_results = query_service.cse().list(
-			q=self.ticker, cx=cse_id,
-			# siteSearch=self.site[site], siteSearchFilter="i",
-			lr="lang_en"
-			).execute()
-		print(query_results)
-		pass
+		self.profile = webdriver.FirefoxProfile()
+		self.profile._install_extension("buster_captcha_solver_for_humans-0.7.2-an+fx.xpi", unpack=False)
+		self.profile.set_preference("security.fileuri.strict_origin_policy", False)
+		self.profile.set_preference("general.useragent.override", fua)
+		self.profile.update_preferences()
+
+
+	# Enable Marionette, An automation driver for Mozilla's Gecko engine
+	def setUpCapabilities(self):
+		self.capabilities = webdriver.DesiredCapabilities.FIREFOX
+		self.capabilities['marionette'] = True
+
+	# Setup settings
+	def setUp(self):
+		self.setUpProfile()
+		self.setUpOptions()
+		self.setUpCapabilities()
+		self.driver = webdriver.Firefox(options=self.options, capabilities=self.capabilities, firefox_profile=self.profile, executable_path='./geckodriver')
+
+	# Simple logging method
+	def log(s,t=None):
+			now = datetime.now()
+			if t == None :
+					t = "Main"
+			print ("%s :: %s -> %s " % (str(now), t, s))
+
+	# Use time.sleep for waiting and uniform for randomizing
+	def wait_between(self, a, b):
+		rand=uniform(a, b)
+		sleep(rand)
+
+	# Using B-spline for simulate humane like mouse movments
+	def human_like_mouse_move(self, action, start_element):
+		points = [[6, 2], [3, 2],[0, 0], [0, 2]];
+		points = np.array(points)
+		x = points[:,0]
+		y = points[:,1]
+
+		t = range(len(points))
+		ipl_t = np.linspace(0.0, len(points) - 1, 100)
+
+		x_tup = si.splrep(t, x, k=1)
+		y_tup = si.splrep(t, y, k=1)
+
+		x_list = list(x_tup)
+		xl = x.tolist()
+		x_list[1] = xl + [0.0, 0.0, 0.0, 0.0]
+
+		y_list = list(y_tup)
+		yl = y.tolist()
+		y_list[1] = yl + [0.0, 0.0, 0.0, 0.0]
+
+		x_i = si.splev(ipl_t, x_list)
+		y_i = si.splev(ipl_t, y_list)
+
+		startElement = start_element
+
+		action.move_to_element(startElement);
+		action.perform();
+
+		c = 5 # change it for more move
+		i = 0
+		for mouse_x, mouse_y in zip(x_i, y_i):
+			action.move_by_offset(mouse_x,mouse_y);
+			action.perform();
+			self.log("Move mouse to, %s ,%s" % (mouse_x, mouse_y))
+			i += 1
+			if i == c:
+				break;
+
+	def moveWait(self, ele):
+		driver = self.driver
+		action =  ActionChains(driver);
+		self.human_like_mouse_move(action, ele)
+		self.wait_between(MIN_RAND, MAX_RAND)
+
+
+	def key_in(self, controller, keys, min_delay=0.05, max_delay=0.25):
+		for key in keys:
+			controller.send_keys(key)
+			sleep(uniform(min_delay,max_delay))
 
 
 	def ft(self):
+		self.setUp()
+		driver = self.driver
+		number = self.number
+		driver.get('https://www.ft.com')
+
+		login = WebDriverWait(driver, 20).until(
+		EC.presence_of_element_located((By.XPATH ,
+			"/html/body/div/div[1]/header[1]/nav[2]/div/ul[2]/li[1]/a"))
+		)
+		self.moveWait(login)
+		login.click()
+
+		WebDriverWait(driver, 20).until(
+				EC.presence_of_element_located((By.ID ,"enter-email"))
+				)
+
+		inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
+		self.key_in(inputs, self.account)
+		self.moveWait(inputs)
+
+		self.wait_between(MIN_RAND, MAX_RAND)
+		driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
+
+		self.wait_between(LONG_MIN_RAND, LONG_MAX_RAND)
+
+		inputs = WebDriverWait(driver, 20).until(
+				EC.presence_of_element_located((By.ID ,"enter-password"))
+				)
+
+		self.moveWait(inputs)
+		self.key_in(inputs, "devil09@$FT")
+		self.moveWait(inputs)
+
+		driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
+
+		# self.do_captcha(driver)
+
+		# self.log("Done")
+
+		# options = Options()
+		# # options.add_argument('--headless')
+		# # options.add_argument('--no-sandbox')
+		# driver = webdriver.Firefox(executable_path="/home/mervyn/geckodriver")
+		# driver.set_window_size(1024, 960)
+
+		# driver.get('https://accounts.ft.com/login?location=https%3A%2F%2Fwww.ft.com')
+
+		# # WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "enter-email")))
+		# # inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
+		# # time.sleep(1)
+		# # inputs.send_keys(self.account)
+		# # driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
+
+		# # WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "enter-password")))
+		# # inputs = driver.find_element_by_xpath('//*[@id="enter-password"]')
+		# # time.sleep(1)
+		# # inputs.send_keys("devil09@$FT")
+
+		# # time.sleep(1)
+		# # driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
+
+		# WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
+		# time.sleep(1)
+		# driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
+		# inputs = driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
+		# inputs.send_keys('Alphabet Inc')
+
+		# driver.find_element_by_xpath('//*[@id="o-header-search-primary"]/div/form/button[1]').click()
+		# # WebDriverWait(driver, 18, 6).until_not(lambda x: x.find_element_by_id('enter-password').is_displayed())
+		# soup = BeautifulSoup(driver.page_source, 'html.parser')
+		# # soup.find_all("")
+		# content = soup.body.get_text()
+		# print(content)
+
+		# time.sleep(1)
+		# driver.find_element_by_xpath('//*[@id="site-content"]/div/div[4]/div/a[2]').click() # next page
+		# soup = BeautifulSoup(driver.page_source, 'html.parser')
+		# # soup.find_all("")
+		# content = soup.body.get_text()
+		# print(content)
+
+
+		# driver.get('https://www.ft.com/search?q=Alphabet%20Inc&page=1&sort=date')
 		pass
 
-	def login(self):
-		ua = UserAgent()
-		headers = {"User-Agent":ua.random}
-		seesion = requests.session()
-
-		post_url = "http://www.renren.com/PLogin.do"    # form表單裡面直接找到的
-		post_data = {"email":"xxxx", "password":"xxxx"}
-		seesion.post(post_url, headers = headers, data = post_data)
-
-		url = "再次請求登陸的url"
-		response = seesion.get(url, headers = headers)
-		with open("renren3.html", "w", encoding="utf-8") as f:
-		f.write(response.content.decode())
 
 if __name__ == '__main__':
 	co = collect()
@@ -143,6 +318,6 @@ if __name__ == '__main__':
 	print(argv)
 	# co.daily()
 	# co.news()
-	co.goo_search("ft")
 	# co.gapi("ft", num = 10)
 
+	co.ft()
