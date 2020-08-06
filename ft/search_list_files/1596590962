@@ -1,0 +1,11 @@
+mdjs._dL['ct'] = {'ihs':'djia-up-0_50,sp-up-0_25,nasdaq-up-0_25,vixx-dn-2_00,IG2019,ftse-up-0_00,GOLD_UP,FTSE_LV,NASDAQ_LV,GBP_LV,OIL_LV'};mdjs._dL['dt'] = {'mdt_28':'on','mdt_26':'on','mdt_24':'on','mdt_23':'on','mdt_22':'on','mdt_18':'on','mdt_11':'on','mdt_10':'on','mdt_7':'on','mdt_6':'on','mdt_5':'on','mdt_4':'on','mdt_3':'on'};mdjs._dL['d'] = ["mdt_28","mdt_26","mdt_24","mdt_23","mdt_22","mdt_18","mdt_11","mdt_10","mdt_7","mdt_6","mdt_5","mdt_4","mdt_3"];if(window.hasOwnProperty("mdjsAsyncHandler")){ mdjsAsyncHandler();}if (typeof mdjs !== "undefined" && typeof googletag !== "undefined" && typeof googletag.cmd !== "undefined") {
+	var mdTargets = mdjs.targeting.getCustom();
+
+	googletag.cmd.push(function() {
+		for(var key in mdTargets){
+			if (mdTargets.hasOwnProperty(key)) {
+				googletag.pubads().setTargeting(key,mdTargets[key]);
+			}
+		}
+	});
+}

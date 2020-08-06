@@ -54,10 +54,30 @@ class collect(object):
 	def __init__(self):
 		super(collect, self).__init__()
 		self.site = {
-			"ust" : "usatoday.com",
-			"wsj" : "wsj.com",
-			"ft" : "ft.com",
+			'ust' : 'usatoday.com',
+			'wsj' : 'wsj.com',
+			'ft' : 'ft.com',
 			}
+
+		self.ticker = {
+				'google' : {
+					'keywords' : ['Alphabet', 'GOOGL'],
+					'name' : 'GOOGL'
+				},
+				'biogen' : {
+					'keywords' : ['Biogen', 'BIIB'],
+					'name' : 'BIIB'
+				},
+				'tesla' : {
+					'keywords' : ['elon musk', 'TSLA', 'tesla'],
+					'name' : 'TSLA'
+				},
+				'amd'  : {
+					'keywords' : ['Advanced Micro Devices', 'AMD'],
+					'name' : 'AMD'
+				}
+			}
+
 
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
@@ -138,14 +158,14 @@ class collect(object):
 
 	# Setup profile with buster captcha solver
 	def setUpProfile(self):
-		ua = UserAgent()
-		fua = ua.random
-		print(fua)
+		# ua = UserAgent()
+		# fua = ua.firefox
+		# print(fua)
 
 		self.profile = webdriver.FirefoxProfile()
 		self.profile._install_extension("buster_captcha_solver_for_humans-0.7.2-an+fx.xpi", unpack=False)
 		self.profile.set_preference("security.fileuri.strict_origin_policy", False)
-		self.profile.set_preference("general.useragent.override", fua)
+		# self.profile.set_preference("general.useragent.override", fua)
 		self.profile.update_preferences()
 
 
@@ -160,6 +180,7 @@ class collect(object):
 		self.setUpOptions()
 		self.setUpCapabilities()
 		self.driver = webdriver.Firefox(options=self.options, capabilities=self.capabilities, firefox_profile=self.profile, executable_path='./geckodriver')
+		self.driver.set_window_size(1024, 768)
 
 	# Simple logging method
 	def log(s,t=None):
@@ -225,7 +246,7 @@ class collect(object):
 			sleep(uniform(min_delay,max_delay))
 
 
-	def ft(self):
+	def ft(self, target):
 		self.setUp()
 		driver = self.driver
 		number = self.number
@@ -233,7 +254,7 @@ class collect(object):
 
 		login = WebDriverWait(driver, 20).until(
 		EC.presence_of_element_located((By.XPATH ,
-			"/html/body/div/div[1]/header[1]/nav[2]/div/ul[2]/li[1]/a"))
+			"/html/body/div/div[1]/header[1]/nav[2]/div/ul[2]/li[1]/a")) #sign-in
 		)
 		self.moveWait(login)
 		login.click()
@@ -242,75 +263,69 @@ class collect(object):
 				EC.presence_of_element_located((By.ID ,"enter-email"))
 				)
 
-		inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
-		self.key_in(inputs, self.account)
-		self.moveWait(inputs)
+		# #account
+		# inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
+		# self.key_in(inputs, self.account)
+		# self.moveWait(inputs)
+		# self.wait_between(MIN_RAND, MAX_RAND)
+		# driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
 
-		self.wait_between(MIN_RAND, MAX_RAND)
-		driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
 
-		self.wait_between(LONG_MIN_RAND, LONG_MAX_RAND)
+		# #password
+		# self.wait_between(LONG_MIN_RAND, LONG_MAX_RAND)
+		# inputs = WebDriverWait(driver, 20).until(
+		# 		EC.presence_of_element_located((By.ID ,"enter-password"))
+		# 		)
 
-		inputs = WebDriverWait(driver, 20).until(
-				EC.presence_of_element_located((By.ID ,"enter-password"))
-				)
+		# self.moveWait(inputs)
+		# self.key_in(inputs, self.password)
+		# self.moveWait(inputs)
+		# driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		self.moveWait(inputs)
-		self.key_in(inputs, "devil09@$FT")
-		self.moveWait(inputs)
 
-		driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		# self.do_captcha(driver)
+		WebDriverWait(driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
+		driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
+		inputs = driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
+		inputs.send_keys(target)
 
-		# self.log("Done")
+		WebDriverWait(driver, 40, 6).until(EC.presence_of_element_located((By.XPATH, "o-header-search-primary")))
+		driver.find_element_by_xpath('//*[@id="o-header-search-primary"]/div/form/button[1]').click()
 
-		# options = Options()
-		# # options.add_argument('--headless')
-		# # options.add_argument('--no-sandbox')
-		# driver = webdriver.Firefox(executable_path="/home/mervyn/geckodriver")
-		# driver.set_window_size(1024, 960)
-
-		# driver.get('https://accounts.ft.com/login?location=https%3A%2F%2Fwww.ft.com')
-
-		# # WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "enter-email")))
-		# # inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
-		# # time.sleep(1)
-		# # inputs.send_keys(self.account)
-		# # driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
-
-		# # WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "enter-password")))
-		# # inputs = driver.find_element_by_xpath('//*[@id="enter-password"]')
-		# # time.sleep(1)
-		# # inputs.send_keys("devil09@$FT")
-
-		# # time.sleep(1)
-		# # driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
-
-		# WebDriverWait(driver, 18, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
-		# time.sleep(1)
-		# driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
-		# inputs = driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
-		# inputs.send_keys('Alphabet Inc')
-
-		# driver.find_element_by_xpath('//*[@id="o-header-search-primary"]/div/form/button[1]').click()
-		# # WebDriverWait(driver, 18, 6).until_not(lambda x: x.find_element_by_id('enter-password').is_displayed())
 		# soup = BeautifulSoup(driver.page_source, 'html.parser')
 		# # soup.find_all("")
 		# content = soup.body.get_text()
 		# print(content)
 
-		# time.sleep(1)
-		# driver.find_element_by_xpath('//*[@id="site-content"]/div/div[4]/div/a[2]').click() # next page
-		# soup = BeautifulSoup(driver.page_source, 'html.parser')
-		# # soup.find_all("")
-		# content = soup.body.get_text()
-		# print(content)
+		# ## o-teaser__content > o-teaser__heading > a
+		# ## o-teaser__content > o-teaser__timestamp > time
+
+		# NEXT_Page XPTH /html/body/div[1]/div[2]/div/div/div/main/div/div[4]/div/a[2]
+
+		# header   : .topper__content h1.topper__headline > span
+		# subtitle : .topper__content .topper__standfirst
+
+		# time     : #site-content article-info article-info__timestamp o-date
+		# content  : #site-content article__content-body
 
 
-		# driver.get('https://www.ft.com/search?q=Alphabet%20Inc&page=1&sort=date')
 		pass
 
+
+	def fta(self):
+		# https://www.gale.com/intl/c/financial-times-historical-archive
+		pass
+
+	def wsj(self, target):
+		# https://www.djreprints.com/menu/other-services/
+		# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
+		# https://developer.dowjones.com/site/global/home/index.gsp
+		# https://www.wsj.com/search/term.html?KEYWORDS=BIIB&mod=searchresults_viewallresults
+		return
+
+	def ust(slef, target):
+		# https://www.usatoday.com/search/?q=TSLA
+		return
 
 if __name__ == '__main__':
 	co = collect()
@@ -320,4 +335,4 @@ if __name__ == '__main__':
 	# co.news()
 	# co.gapi("ft", num = 10)
 
-	co.ft()
+	co.ft('')
