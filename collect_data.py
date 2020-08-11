@@ -41,11 +41,8 @@ LONG_MAX_RAND = 10.1
 
 class collect(object):
 
-	number = None
 	headless = False
-	options = None
-	profile = None
-	capabilities = None
+	driver = None
 	ticker_info = {
 				'google' : {
 					'keywords' : ['Alphabet', 'GOOGL'],
@@ -77,6 +74,24 @@ class collect(object):
 		super(collect, self).__init__()
 
 	"""docstring for collect"""
+	def setArgv(self):
+		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
+		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode')
+		parser.add_argument('-s', '--ticker', type=str, help='stock name(google|biogen|tesla|amd)')
+		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
+		parser.add_argument('-a', '--account', type=str, help='news account')
+		parser.add_argument('-p', '--password', type=str, help='news account password')
+		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info')
+		args = parser.parse_args()
+		self.ticker = args.ticker
+		self.tiingo = args.tiingo
+		self.account = args.account
+		self.password = args.password
+		self.debug = args.debug
+		self.headless = args.headless
+		return args
+
+	"""docstring for collect"""
 	def run(self):
 		self.daily()
 		self.tii_news()
@@ -84,7 +99,7 @@ class collect(object):
 
 	"""docstring for collect"""
 	def tii(self, url, fn):
-		if url == None or fn == None:
+		if url is None or fn is None:
 			return
 		headers = {
 			'Content-Type': 'application/json'
@@ -95,9 +110,8 @@ class collect(object):
 		return
 
 	def daily(self):
-		if self.tiingo == None:
+		if self.tiingo is None:
 			return;
-
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate=2000-01-01&token=" + self.tiingo
 		fn = './data/stock/' + ticker+"_prices.json"
@@ -105,7 +119,7 @@ class collect(object):
 
 	"""docstring for collect"""
 	def tii_news(self):
-		if self.tiingo == None:
+		if self.tiingo is None:
 			return;
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate=2000-01-01&token=" + self.tiingo + "&tickers=" + ticker
@@ -224,11 +238,11 @@ class collect(object):
 				EC.presence_of_element_located((By.XPATH, nextPageClass))
 			)
 
-			while nextPage:
+			while nextPage is not None:
 				soup = BeautifulSoup(driver.page_source, 'html.parser')
 				links = soup.find_all("a", class_="gnt_se_a")
 				for arch in links:
-					print(arch['href'])
+					# print(arch['href'])
 					newslinks.append(base + arch['href'])
 					pass
 				nextPage.click() # next
@@ -237,7 +251,7 @@ class collect(object):
 					nextPage = WebDriverWait(driver, MAX_RAND + 20).until(
 						EC.presence_of_element_located((By.XPATH, nextPageClass)))
 				finally:
-					nextPage = 0
+					nextPage = None
 
 		newslinks = list(dict.fromkeys(newslinks))
 		for url in newslinks:
@@ -245,16 +259,19 @@ class collect(object):
 
 
 	def ust_content(self, link):
-		if(!self.driver):
+		if(self.driver is None):
 			self.setUp()
-		self.driver
+		# self.driver
 		self.driver.get(link)
+		WebDriverWait(self.driver, 20).until(
+				EC.presence_of_element_located((By.CLASS_NAME, 'gnt_ar_hl'))
+			)
 		soup = BeautifulSoup(self.driver.page_source, "html.parser")
 
-		dtD = soup.select('div.gnt_ar_dt')
-		dt = dtD[0]['aria-label']
-		datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dt)
-		dt = datetime.strptime(dt.group(3), '%b. %d, %Y').isoformat()
+		dtD = soup.select('article div.gnt_ar_dt')
+		dtD = dtD[0]['aria-label']
+		datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD)
+		dt = datetime.strptime(datetimeGroup.group(3), '%b. %d, %Y').isoformat()
 
 		artistD = soup.select('article div.gnt_ar_by')
 		artist = artistD[0].text
@@ -262,21 +279,24 @@ class collect(object):
 		contentD = soup.select('article div.gnt_ar_b')
 		content = contentD[0].text
 
+		print(content)
+
 		self.toNewsCsv(link, 'usatoday',
 			{"date" : dt, "artist" : artist, "content": content}
 			)
+
 		return
 
 	"""docstring for collect"""
 	def goo_search(self, site):
-		if self.google == None :
+		if self.google is None :
 			return
 		try:
 			ff = self.site[site]
 		except KeyError:
 			print('site not exist ' + site)
 			return
-		q = self.ticker + ("" if site == None else "%20+site:%20" + self.site[site])
+		q = self.ticker + ("" if site is None else "%20+site:%20" + self.site[site])
 		# q = urllib.parse.quote(q)
 		if self.debug:
 			print(q)
@@ -287,24 +307,6 @@ class collect(object):
 				pause = 2.0,  # Lapse between HTTP requests)
 			):
 			print(link)
-
-	#
-	def setArgv(self):
-		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
-		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode')
-		parser.add_argument('-s', '--ticker', type=str, help='stock name')
-		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
-		parser.add_argument('-a', '--account', type=str, help='news account')
-		parser.add_argument('-p', '--password', type=str, help='news account password')
-		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info')
-		args = parser.parse_args()
-		self.ticker = args.ticker
-		self.tiingo = args.tiingo
-		self.account = args.account
-		self.password = args.password
-		self.debug = args.debug
-		self.headless = args.headless
-		return args
 
 	def str2bool(self, v):
 		if isinstance(v, bool):
@@ -331,15 +333,13 @@ class collect(object):
 		# options.add_option('useAutomationExtension', False)
 		options.headless = self.headless
 
-		self.setUpOptions()
-		self.setUpCapabilities()
 		self.driver = webdriver.Firefox(options=options, capabilities=capabilities, firefox_profile=profile, executable_path='./geckodriver')
 		self.driver.set_window_size(1024, 768)
 
 	# Simple logging method
 	def log(s,t=None):
 		now = datetime.now()
-		if t == None :
+		if t is None :
 				t = "Main"
 		print ("%s :: %s -> %s " % (str(now), t, s))
 
@@ -403,5 +403,7 @@ class collect(object):
 ###
 if __name__ == '__main__':
 	co = collect()
-	co.setArgv().run()
-
+	co.setArgv()
+	# co.run()
+	base = 'https://www.usatoday.com'
+	co.ust_content(base + '/story/money/cars/2018/06/05/americas-best-selling-electric-vehicles/35439337/')
