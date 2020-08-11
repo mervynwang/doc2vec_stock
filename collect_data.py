@@ -1,10 +1,7 @@
 #!/usr/bin/python3
 
 
-import sys, time
-
-# import numpy as np
-# import scipy.interpolate as si
+import sys, re, csv
 
 from datetime import datetime
 from time import sleep, time
@@ -96,7 +93,7 @@ class collect(object):
 
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate=2000-01-01&token=" + self.tiingo
-		fn = ticker+"_prices.json"
+		fn = './data/stock/' + ticker+"_prices.json"
 		tii(url, fn)
 
 	def tii_news(self):
@@ -104,7 +101,7 @@ class collect(object):
 			return;
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate=2000-01-01&token=" + self.tiingo + "&tickers=" + ticker
-		fn = ticker + "_news.json"
+		fn = './data/tiinews/' + ticker + "_news.json"
 		tii(url, fn)
 
 	def ft(self, target):
@@ -182,6 +179,7 @@ class collect(object):
 		# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
 		# https://developer.dowjones.com/site/global/home/index.gsp
 		# https://www.wsj.com/search/term.html?KEYWORDS=BIIB&mod=searchresults_viewallresults
+		# OR https://www.wsj.com/market-data/quotes/TSLA
 		return
 
 	def ust_search(self):
@@ -214,10 +212,31 @@ class collect(object):
 			finally:
 				nextPage = 0
 
-		print("========")
-		print(newslinks)
+		# print("========")
+		# print(newslinks)
 
 		return newslinks
+
+	def ust_content(self, link):
+		if(!self.driver):
+			self.setUp()
+		self.driver
+		self.driver.get(link)
+		soup = BeautifulSoup(self.driver.page_source, "html.parser")
+
+		dtD = soup.select('div.gnt_ar_dt')
+		dt = dtD[0]['aria-label']
+		datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dt)
+		dt = datetime.strptime(dt.group(3), '%b. %d, %Y').isoformat()
+
+		artistD = soup.select('article div.gnt_ar_by')
+		artist = artistD[0].text
+
+		contentD = soup.select('article div.gnt_ar_b')
+		content = contentD[0].text
+
+		return {"dt" : dt, "artist" : artist, "content": content}
+
 
 	def goo_search(self, site):
 		if self.google == None :
