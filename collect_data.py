@@ -76,6 +76,13 @@ class collect(object):
 	def __init__(self):
 		super(collect, self).__init__()
 
+	"""docstring for collect"""
+	def run(self):
+		self.daily()
+		self.tii_news()
+		self.usat()
+
+	"""docstring for collect"""
 	def tii(self, url, fn):
 		if url == None or fn == None:
 			return
@@ -94,16 +101,33 @@ class collect(object):
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate=2000-01-01&token=" + self.tiingo
 		fn = './data/stock/' + ticker+"_prices.json"
-		tii(url, fn)
+		self.tii(url, fn)
 
+	"""docstring for collect"""
 	def tii_news(self):
 		if self.tiingo == None:
 			return;
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate=2000-01-01&token=" + self.tiingo + "&tickers=" + ticker
 		fn = './data/tiinews/' + ticker + "_news.json"
-		tii(url, fn)
+		self.tii(url, fn)
 
+	"""docstring for collect"""
+	def toNewsCsv(self, url, source, ds):
+		with open('./data/news.csv', 'a', newline='') as csvfile:
+			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '7d', '1m']
+			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+			writer.writeheader()
+			writer.writerow({
+				'link' : url,
+				'date' : ds['date'],
+				'artist' : ds['artist'],
+				'content' : ds['content'],
+				'ticker' : self.ticker,
+				'source' : source,
+				})
+
+	"""docstring for collect"""
 	def ft(self, target):
 		self.setUp()
 		driver = self.driver
@@ -169,11 +193,12 @@ class collect(object):
 
 		pass
 
-
 	def fta(self):
 		# https://www.gale.com/intl/c/financial-times-historical-archive
 		pass
 
+
+	"""docstring for collect"""
 	def wsj(self):
 		# https://www.djreprints.com/menu/other-services/
 		# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
@@ -182,40 +207,42 @@ class collect(object):
 		# OR https://www.wsj.com/market-data/quotes/TSLA
 		return
 
-	def ust_search(self):
+
+	"""docstring for collect"""
+	def usat(self):
 		self.setUp()
 		driver = self.driver
 		number = self.number
 		base = 'https://www.usatoday.com/'
+		newslinks = []
 
 		ticker = self.ticker_info[self.ticker]['name']
-		driver.get('https://www.usatoday.com/search/?q=' +ticker )
+		for kw in self.ticker_info[self.ticker]['keywords']:
+			driver.get('https://www.usatoday.com/search/?q=' +ticker )
+			nextPageClass = '//a[@class="gnt_se_pgn_a gnt_se_pgn_pn gnt_se_pgn_pn__nt"]'  # all match
+			nextPage = WebDriverWait(driver, 20).until(
+				EC.presence_of_element_located((By.XPATH, nextPageClass))
+			)
 
-		newslinks = []
-		nextPageClass = '//a[@class="gnt_se_pgn_a gnt_se_pgn_pn gnt_se_pgn_pn__nt"]'  # all match
-		nextPage = WebDriverWait(driver, 20).until(
-			EC.presence_of_element_located((By.XPATH, nextPageClass))
-		)
+			while nextPage:
+				soup = BeautifulSoup(driver.page_source, 'html.parser')
+				links = soup.find_all("a", class_="gnt_se_a")
+				for arch in links:
+					print(arch['href'])
+					newslinks.append(base + arch['href'])
+					pass
+				nextPage.click() # next
+				self.wait_between(MIN_RAND, MAX_RAND)
+				try:
+					nextPage = WebDriverWait(driver, MAX_RAND + 20).until(
+						EC.presence_of_element_located((By.XPATH, nextPageClass)))
+				finally:
+					nextPage = 0
 
-		while nextPage:
-			soup = BeautifulSoup(driver.page_source, 'html.parser')
-			links = soup.find_all("a", class_="gnt_se_a")
-			for arch in links:
-				print(arch['href'])
-				newslinks.append(base + arch['href'])
-				pass
-			nextPage.click() # next
-			self.wait_between(MIN_RAND, MAX_RAND)
-			try:
-				nextPage = WebDriverWait(driver, MAX_RAND + 20).until(
-					EC.presence_of_element_located((By.XPATH, nextPageClass)))
-			finally:
-				nextPage = 0
+		newslinks = list(dict.fromkeys(newslinks))
+		for url in newslinks:
+			self.ust_content(url)
 
-		# print("========")
-		# print(newslinks)
-
-		return newslinks
 
 	def ust_content(self, link):
 		if(!self.driver):
@@ -235,9 +262,12 @@ class collect(object):
 		contentD = soup.select('article div.gnt_ar_b')
 		content = contentD[0].text
 
-		return {"dt" : dt, "artist" : artist, "content": content}
+		self.toNewsCsv(link, 'usatoday',
+			{"date" : dt, "artist" : artist, "content": content}
+			)
+		return
 
-
+	"""docstring for collect"""
 	def goo_search(self, site):
 		if self.google == None :
 			return
@@ -261,6 +291,7 @@ class collect(object):
 	#
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
+		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode')
 		parser.add_argument('-s', '--ticker', type=str, help='stock name')
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
 		parser.add_argument('-a', '--account', type=str, help='news account')
@@ -272,6 +303,7 @@ class collect(object):
 		self.account = args.account
 		self.password = args.password
 		self.debug = args.debug
+		self.headless = args.headless
 		return args
 
 	def str2bool(self, v):
@@ -285,40 +317,31 @@ class collect(object):
 			raise argparse.ArgumentTypeError('Boolean value expected.')
 		return
 
-
-	# Setup options for webdriver
-	def setUpOptions(self):
-		self.options = webdriver.FirefoxOptions()
-		# self.options.add_option('useAutomationExtension', False)
-		self.options.headless = self.headless
-
-	# Setup profile with buster captcha solver
-	def setUpProfile(self):
-		self.profile = webdriver.FirefoxProfile()
-		# self.profile._install_extension("buster_captcha_solver_for_humans-0.7.2-an+fx.xpi", unpack=False)
-		# self.profile.set_preference("security.fileuri.strict_origin_policy", False)
-		# self.profile.set_preference("general.useragent.override", fua)
-		self.profile.update_preferences()
-
-	# Enable Marionette, An automation driver for Mozilla's Gecko engine
-	def setUpCapabilities(self):
-		self.capabilities = webdriver.DesiredCapabilities.FIREFOX
-		self.capabilities['marionette'] = True
-
 	# Setup settings
 	def setUp(self):
-		self.setUpProfile()
+		profile = webdriver.FirefoxProfile()
+		# profile._install_extension("buster_captcha_solver_for_humans-0.7.2-an+fx.xpi", unpack=False)
+		# profile.set_preference("security.fileuri.strict_origin_policy", False)
+		# profile.set_preference("general.useragent.override", fua)
+		profile.update_preferences()
+		capabilities = webdriver.DesiredCapabilities.FIREFOX
+		capabilities['marionette'] = True
+
+		options = webdriver.FirefoxOptions()
+		# options.add_option('useAutomationExtension', False)
+		options.headless = self.headless
+
 		self.setUpOptions()
 		self.setUpCapabilities()
-		self.driver = webdriver.Firefox(options=self.options, capabilities=self.capabilities, firefox_profile=self.profile, executable_path='./geckodriver')
+		self.driver = webdriver.Firefox(options=options, capabilities=capabilities, firefox_profile=profile, executable_path='./geckodriver')
 		self.driver.set_window_size(1024, 768)
 
 	# Simple logging method
 	def log(s,t=None):
-			now = datetime.now()
-			if t == None :
-					t = "Main"
-			print ("%s :: %s -> %s " % (str(now), t, s))
+		now = datetime.now()
+		if t == None :
+				t = "Main"
+		print ("%s :: %s -> %s " % (str(now), t, s))
 
 	# Use time.sleep for waiting and uniform for randomizing
 	def wait_between(self, a, b):
@@ -378,13 +401,7 @@ class collect(object):
 
 
 ###
-
 if __name__ == '__main__':
 	co = collect()
-	argv = co.setArgv()
-	print(argv)
-	# co.daily()
-	# co.news()
-	# co.gapi("ft", num = 10)
+	co.setArgv().run()
 
-	co.ust_search()

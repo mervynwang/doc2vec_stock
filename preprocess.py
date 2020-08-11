@@ -8,6 +8,11 @@ from gensim.models import doc2vec
 from collections import namedtuple
 
 
+# Load data
+raw_doc = [
+    'Today is a nice day',
+    'I want to go to play'
+]
 
 
 # Preprocess
