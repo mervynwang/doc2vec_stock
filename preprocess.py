@@ -1,6 +1,7 @@
 # coding: utf-8
-import sys
-import json
+import sys, json, csv
+
+
 
 import argparse
 
@@ -13,6 +14,11 @@ raw_doc = [
     'Today is a nice day',
     'I want to go to play'
 ]
+
+with open('us.csv', 'a', newline='') as csvfile:
+    # fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '7d', '1m']
+    rows = csv.reader(csvfile)
+
 
 
 # Preprocess

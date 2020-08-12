@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-import sys, re, csv
+import sys, os, re, csv, hashlib
 
 from datetime import datetime
 from time import sleep, time
@@ -45,7 +45,7 @@ class collect(object):
 	driver = None
 	ticker_info = {
 				'google' : {
-					'keywords' : ['Alphabet', 'GOOGL'],
+					'keywords' : ['GOOGL', 'Alphabet'],
 					'name' : 'GOOGL'
 				},
 				'biogen' : {
@@ -67,11 +67,15 @@ class collect(object):
 			'wsj' : 'wsj.com',
 			'ft' : 'ft.com',
 			}
-
+	newsCsv = './data/news.csv'
 
 	"""docstring for collect"""
 	def __init__(self):
 		super(collect, self).__init__()
+
+	def __del__(self):
+		if(self.driver is not None):
+			self.driver.quit()
 
 	"""docstring for collect"""
 	def setArgv(self):
@@ -81,6 +85,7 @@ class collect(object):
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
 		parser.add_argument('-a', '--account', type=str, help='news account')
 		parser.add_argument('-p', '--password', type=str, help='news account password')
+		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv')
 		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info')
 		args = parser.parse_args()
 		self.ticker = args.ticker
@@ -89,6 +94,12 @@ class collect(object):
 		self.password = args.password
 		self.debug = args.debug
 		self.headless = args.headless
+		if args.reset == True:
+			try:
+				os.remove(self.newsCsv)
+			except OSError:
+				pass
+
 		return args
 
 	"""docstring for collect"""
@@ -109,6 +120,7 @@ class collect(object):
 			fo.write(requestResponse.text)
 		return
 
+	"""docstring for collect"""
 	def daily(self):
 		if self.tiingo is None:
 			return;
@@ -128,7 +140,7 @@ class collect(object):
 
 	"""docstring for collect"""
 	def toNewsCsv(self, url, source, ds):
-		with open('./data/news.csv', 'a', newline='') as csvfile:
+		with open(self.newsCsv, 'a', newline='') as csvfile:
 			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '7d', '1m']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 			writer.writeheader()
@@ -145,7 +157,7 @@ class collect(object):
 	def ft(self, target):
 		self.setUp()
 		driver = self.driver
-		number = self.number
+
 		driver.get('https://www.ft.com')
 
 		login = WebDriverWait(driver, 20).until(
@@ -207,6 +219,7 @@ class collect(object):
 
 		pass
 
+	"""docstring for collect"""
 	def fta(self):
 		# https://www.gale.com/intl/c/financial-times-historical-archive
 		pass
@@ -224,15 +237,31 @@ class collect(object):
 
 	"""docstring for collect"""
 	def usat(self):
+		fn = "./url.temp"
+		if os.path.exists(fn) == True:
+			with open(fn, 'r', newline='', encoding='utf-8') as f:
+				url = f.readline()
+				while url:
+					print(url)
+					self.wait_between(MIN_RAND, MAX_RAND)
+					self.ust_content(url)
+					url = f.readline()
+			try:
+				os.remove(self.newsCsv)
+			except :
+				pass
+			return
+
 		self.setUp()
 		driver = self.driver
-		number = self.number
-		base = 'https://www.usatoday.com/'
+		base = 'https://www.usatoday.com'
 		newslinks = []
 
 		ticker = self.ticker_info[self.ticker]['name']
 		for kw in self.ticker_info[self.ticker]['keywords']:
-			driver.get('https://www.usatoday.com/search/?q=' +ticker )
+			print("keyword: " + kw )
+
+			driver.get('https://www.usatoday.com/search/?q=' +kw )
 			nextPageClass = '//a[@class="gnt_se_pgn_a gnt_se_pgn_pn gnt_se_pgn_pn__nt"]'  # all match
 			nextPage = WebDriverWait(driver, 20).until(
 				EC.presence_of_element_located((By.XPATH, nextPageClass))
@@ -244,48 +273,69 @@ class collect(object):
 				for arch in links:
 					# print(arch['href'])
 					newslinks.append(base + arch['href'])
-					pass
-				nextPage.click() # next
 				self.wait_between(MIN_RAND, MAX_RAND)
+				nextPage.click() # next
+
 				try:
-					nextPage = WebDriverWait(driver, MAX_RAND + 20).until(
+					nextPage = WebDriverWait(driver, 20).until(
 						EC.presence_of_element_located((By.XPATH, nextPageClass)))
-				finally:
+				except:
+					print("nextPage None")
 					nextPage = None
 
 		newslinks = list(dict.fromkeys(newslinks))
+		with open(fn, 'w', newline='') as f:
+			for url in newslinks:
+				f.write("%s\n" % url)
+
 		for url in newslinks:
+			# print(url)
+			self.wait_between(MIN_RAND, MAX_RAND)
 			self.ust_content(url)
 
+		if os.path.exists(fn) == True:
+			os.reomve(fn)
 
+	"""docstring for collect"""
 	def ust_content(self, link):
 		if(self.driver is None):
 			self.setUp()
-		# self.driver
-		self.driver.get(link)
-		WebDriverWait(self.driver, 20).until(
-				EC.presence_of_element_located((By.CLASS_NAME, 'gnt_ar_hl'))
-			)
-		soup = BeautifulSoup(self.driver.page_source, "html.parser")
+		try:
+			self.driver.get(link)
+		except:
+			print("Error:" + link)
 
-		dtD = soup.select('article div.gnt_ar_dt')
-		dtD = dtD[0]['aria-label']
-		datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD)
-		dt = datetime.strptime(datetimeGroup.group(3), '%b. %d, %Y').isoformat()
+		try:
+			WebDriverWait(self.driver, 40).until(
+					EC.presence_of_element_located((By.CLASS_NAME, 'gnt_ar_hl'))
+				)
+			soup = BeautifulSoup(self.driver.page_source, "html.parser")
 
-		artistD = soup.select('article div.gnt_ar_by')
-		artist = artistD[0].text
+			dtD = soup.select('article div.gnt_ar_dt')
+			dtD = dtD[0]['aria-label']
+			datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD)
+			dt = datetime.strptime(datetimeGroup.group(3), '%b. %d, %Y').isoformat()
 
-		contentD = soup.select('article div.gnt_ar_b')
-		content = contentD[0].text
+			artistD = soup.select('article div.gnt_ar_by')
+			artist = artistD[0].text
 
-		print(content)
+			contentD = soup.select('article div.gnt_ar_b')
+			content = contentD[0].text
+			self.toNewsCsv(link, 'usatoday',
+				{"date" : dt, "artist" : artist, "content": content}
+				)
+		except:
+			print("timeout : " + link)
+			with open("./tmp/usat_to", 'a') as f:
+				f.write("%s" % link)
 
-		self.toNewsCsv(link, 'usatoday',
-			{"date" : dt, "artist" : artist, "content": content}
-			)
-
-		return
+			m = hashlib.md5()
+			link = link.encode('utf-8')
+			m.update(link)
+			shash = m.hexdigest()
+			with open("./tmp/usat" + shash + ".html", 'a') as f:
+				f.write(self.driver.page_source)
+			pass
 
 	"""docstring for collect"""
 	def goo_search(self, site):
@@ -334,7 +384,7 @@ class collect(object):
 		options.headless = self.headless
 
 		self.driver = webdriver.Firefox(options=options, capabilities=capabilities, firefox_profile=profile, executable_path='./geckodriver')
-		self.driver.set_window_size(1024, 768)
+		self.driver.set_window_size(1024, 1024)
 
 	# Simple logging method
 	def log(s,t=None):
@@ -404,6 +454,6 @@ class collect(object):
 if __name__ == '__main__':
 	co = collect()
 	co.setArgv()
-	# co.run()
-	base = 'https://www.usatoday.com'
-	co.ust_content(base + '/story/money/cars/2018/06/05/americas-best-selling-electric-vehicles/35439337/')
+	co.run()
+	# base = 'https://www.usatoday.com'
+	# co.ust_content(base + '/story/money/cars/2018/06/05/americas-best-selling-electric-vehicles/35439337/')

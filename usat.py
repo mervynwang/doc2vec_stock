@@ -1,7 +1,10 @@
-from bs4 import BeautifulSoup
-import re
-import csv
+
+import re, csv
+
 from datetime import datetime
+
+from bs4 import BeautifulSoup
+
 
 soup = BeautifulSoup(open("./ust/content.html"), "html.parser")
 
