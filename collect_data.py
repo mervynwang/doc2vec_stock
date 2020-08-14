@@ -43,6 +43,7 @@ class collect(object):
 
 	headless = False
 	driver = None
+	stockDict = {}
 	ticker_info = {
 				'google' : {
 					'keywords' : ['GOOGL', 'Alphabet'],
@@ -69,9 +70,15 @@ class collect(object):
 			}
 	newsCsv = './data/news.csv'
 
+
+
 	"""docstring for collect"""
 	def __init__(self):
 		super(collect, self).__init__()
+		if os.path.isdir("./data") == False:
+			os.mkdir("./data")
+		if os.path.isdir("./tmp") == False:
+			os.mkdir("./tmp")
 
 	def __del__(self):
 		if(self.driver is not None):
@@ -80,13 +87,13 @@ class collect(object):
 	"""docstring for collect"""
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
-		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode')
+		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode (1|0)')
 		parser.add_argument('-s', '--ticker', type=str, help='stock name(google|biogen|tesla|amd)')
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
 		parser.add_argument('-a', '--account', type=str, help='news account')
 		parser.add_argument('-p', '--password', type=str, help='news account password')
-		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv')
-		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info')
+		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv (1|0)')
+		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info (1|0)')
 		args = parser.parse_args()
 		self.ticker = args.ticker
 		self.tiingo = args.tiingo
@@ -96,7 +103,9 @@ class collect(object):
 		self.headless = args.headless
 		if args.reset == True:
 			try:
-				os.remove(self.newsCsv)
+				print("remove")
+				# os.remove(self.newsCsv)
+				os.rename(self.newsCsv, self.newsCsv+'.bak')
 			except OSError:
 				pass
 
@@ -138,10 +147,40 @@ class collect(object):
 		fn = './data/tiinews/' + ticker + "_news.json"
 		self.tii(url, fn)
 
+	def stock2Sson(self):
+		ticker = self.ticker_info[self.ticker]['name']
+		fn = './data/stock/' + ticker+"_prices.json"
+		with open(fn, 'r') as stock:
+			stockList = json.load(stock)
+			for node in stockList:
+				date = node['date'][0:10]
+				self.stockDist[date] = node
+
+	def daypp(self, dd, n):
+		end = datetime.datetime(2020, 5, 30)
+		if n > 0 :
+			dd = dd + datetime.timedelta(days=n)
+		dd1 = datetime.timedelta(days=1)
+		while True:
+			ds = dd.isoformat()[0:10]
+			try:
+				return self.stockDist[ds]
+			except:
+				print("%s : %s", dd, n)
+				dd = dd + dd1
+				if dd >= end :
+					break
+		return False
+
 	"""docstring for collect"""
 	def toNewsCsv(self, url, source, ds):
+		date = datetime.strptime(ds['date'][0:10], '%Y-%m-%d')
+		st0 = daypp(date, 0)
+		st7 = daypp(date, 7)
+		st30 = daypp(date, 30)
+
 		with open(self.newsCsv, 'a', newline='') as csvfile:
-			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '7d', '1m']
+			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '0d', '7d', '1m']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 			writer.writeheader()
 			writer.writerow({
@@ -151,6 +190,9 @@ class collect(object):
 				'content' : ds['content'],
 				'ticker' : self.ticker,
 				'source' : source,
+				'0d' : st0,
+				'7d' : st7,
+				'1m' : st30,
 				})
 
 	"""docstring for collect"""
@@ -237,6 +279,8 @@ class collect(object):
 
 	"""docstring for collect"""
 	def usat(self):
+		# https://www.usatoday.com/sitemap/2012/march/8/
+
 		fn = "./url.temp"
 		if os.path.exists(fn) == True:
 			with open(fn, 'r', newline='', encoding='utf-8') as f:
@@ -336,6 +380,16 @@ class collect(object):
 			with open("./tmp/usat" + shash + ".html", 'a') as f:
 				f.write(self.driver.page_source)
 			pass
+
+
+	"""docstring for collect"""
+	def ust_sitemap(self):
+		baseUrl = 'https://www.usatoday.com/sitemap/'
+
+		requestResponse = requests.get(url, headers=headers)
+
+
+
 
 	"""docstring for collect"""
 	def goo_search(self, site):
