@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 
-import sys, os, re, csv, hashlib
+import sys, os, re, csv, hashlib, datetime
 
-from datetime import datetime
+# from datetime import datetime
 from time import sleep, time
 from random import uniform, randint
 
@@ -11,7 +11,7 @@ from random import uniform, randint
 import requests
 import argparse
 
-# from fake_useragent import UserAgent
+from fake_useragent import UserAgent
 from googlesearch import search
 
 from selenium import webdriver
@@ -43,6 +43,9 @@ class collect(object):
 
 	headless = False
 	driver = None
+	collect_start = datetime.datetime(2013, 1, 1)
+	collect_end = datetime.datetime(2020, 8, 1)
+	headers = {}
 	stockDict = {}
 	ticker_info = {
 				'google' : {
@@ -63,11 +66,6 @@ class collect(object):
 				}
 			}
 
-	site = {
-			'ust' : 'usatoday.com',
-			'wsj' : 'wsj.com',
-			'ft' : 'ft.com',
-			}
 	newsCsv = './data/news.csv'
 
 
@@ -75,47 +73,73 @@ class collect(object):
 	"""docstring for collect"""
 	def __init__(self):
 		super(collect, self).__init__()
-		if os.path.isdir("./data") == False:
-			os.mkdir("./data")
-		if os.path.isdir("./tmp") == False:
-			os.mkdir("./tmp")
+		ua = UserAgent()
+		self.headers = {'user-agent': ua.chrome}
+		self.mkdir("./data")
+		self.mkdir("./tmp")
+
 
 	def __del__(self):
 		if(self.driver is not None):
 			self.driver.quit()
 
+
 	"""docstring for collect"""
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
 		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode (1|0)')
+		parser.add_argument('-n', '--nu', type=int, default=0, help='news list start from nu')
+
 		parser.add_argument('-s', '--ticker', type=str, help='stock name(google|biogen|tesla|amd)')
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
+
 		parser.add_argument('-a', '--account', type=str, help='news account')
 		parser.add_argument('-p', '--password', type=str, help='news account password')
+
+		parser.add_argument('-f', '--file', type=str, help='parser file')
+
 		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv (1|0)')
-		parser.add_argument('-d', '--debug', type=self.str2bool, default=False, help='debug info (1|0)')
-		args = parser.parse_args()
-		self.ticker = args.ticker
-		self.tiingo = args.tiingo
-		self.account = args.account
-		self.password = args.password
-		self.debug = args.debug
-		self.headless = args.headless
+		parser.add_argument('-d', '--debug', type=self.str2bool, default=True, help='debug info (1|0)')
+
+		parser.add_argument('source', help='wsj|usat|ft|tii')
+
+		args = parser.parse_args(namespace=self)
+
+		self.fnlist = "./data/" + self.source + "/news_list"
+		self.mkdir("./data/" + self.source)
+
 		if args.reset == True:
 			try:
-				print("remove")
+				os.remove(self.fnlist+'.bak')
+				os.rename(self.fnlist, self.fnlist+'.bak')
+
 				# os.remove(self.newsCsv)
-				os.rename(self.newsCsv, self.newsCsv+'.bak')
+				# os.rename(self.newsCsv, self.newsCsv+'.bak')
 			except OSError:
 				pass
 
-		return args
+		return self
 
 	"""docstring for collect"""
 	def run(self):
-		self.daily()
-		self.tii_news()
-		self.usat()
+		if self.source == "tii":
+			self.daily()
+			self.tii_news()
+
+		if self.source == "usat":
+			self.ust_sitemap()
+			self.newslist_fetch(self.ust_content)
+
+		if self.source == "wsj":
+			self.wsj_arix()
+			self.newslist_fetch(self.wsj_content)
+
+		if self.source == "ft":
+			self.ft()
+
+		if self.source == "usatf":
+			print(self.source)
+			self.ust_content(self.file, False)
 
 	"""docstring for collect"""
 	def tii(self, url, fn):
@@ -133,8 +157,10 @@ class collect(object):
 	def daily(self):
 		if self.tiingo is None:
 			return;
+
+		date = self.collect_start.strftime('%Y-%m-%d')
 		ticker = self.ticker_info[self.ticker]['name']
-		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate=2000-01-01&token=" + self.tiingo
+		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate="+date+"&token=" + self.tiingo
 		fn = './data/stock/' + ticker+"_prices.json"
 		self.tii(url, fn)
 
@@ -142,42 +168,49 @@ class collect(object):
 	def tii_news(self):
 		if self.tiingo is None:
 			return;
+		date = self.collect_start.strftime('%Y-%m-%d')
 		ticker = self.ticker_info[self.ticker]['name']
-		url = "https://api.tiingo.com/tiingo/news?startDate=2000-01-01&token=" + self.tiingo + "&tickers=" + ticker
+		url = "https://api.tiingo.com/tiingo/news?startDate="+date+"&token=" + self.tiingo + "&tickers=" + ticker
 		fn = './data/tiinews/' + ticker + "_news.json"
 		self.tii(url, fn)
 
-	def stock2Sson(self):
+	def stock2Json(self):
 		ticker = self.ticker_info[self.ticker]['name']
-		fn = './data/stock/' + ticker+"_prices.json"
+		fn = './data/stock/' + ticker+ "_prices.json"
 		with open(fn, 'r') as stock:
 			stockList = json.load(stock)
 			for node in stockList:
 				date = node['date'][0:10]
 				self.stockDist[date] = node
 
-	def daypp(self, dd, n):
+	"""docstring for collect"""
+	def dayMove(self, dd, n):
 		end = datetime.datetime(2020, 5, 30)
+
 		if n > 0 :
 			dd = dd + datetime.timedelta(days=n)
 		dd1 = datetime.timedelta(days=1)
 		while True:
 			ds = dd.isoformat()[0:10]
-			try:
+			if ds in self.stockDist:
 				return self.stockDist[ds]
-			except:
-				print("%s : %s", dd, n)
+
+			# print("%s : %s", dd, n)
+			if n == 0:
+				dd = dd - dd1
+			else:
 				dd = dd + dd1
-				if dd >= end :
-					break
+
+			if dd >= end :
+				break
 		return False
 
 	"""docstring for collect"""
 	def toNewsCsv(self, url, source, ds):
 		date = datetime.strptime(ds['date'][0:10], '%Y-%m-%d')
-		st0 = daypp(date, 0)
-		st7 = daypp(date, 7)
-		st30 = daypp(date, 30)
+		st0 = self.dayMove(date, 0)
+		st7 = self.dayMove(date, 7)
+		st30 = self.dayMove(date, 30)
 
 		with open(self.newsCsv, 'a', newline='') as csvfile:
 			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '0d', '7d', '1m']
@@ -194,6 +227,19 @@ class collect(object):
 				'7d' : st7,
 				'1m' : st30,
 				})
+
+	def newslist_fetch(self, content_parser):
+		i = 1
+		with open(self.fnlist , "r") as fo:
+			for url in fo:
+				i = i + 1
+				url = url.rstrip()
+				if self.nu >= i:
+					continue
+
+				self.log(str(i) + "  " + url);
+				content_parser(url, False)
+				self.wait_between()
 
 	"""docstring for collect"""
 	def ft(self, target):
@@ -217,12 +263,12 @@ class collect(object):
 		# inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
 		# self.key_in(inputs, self.account)
 		# self.moveWait(inputs)
-		# self.wait_between(MIN_RAND, MAX_RAND)
+		# self.wait_between()
 		# driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
 
 
 		# #password
-		# self.wait_between(LONG_MIN_RAND, LONG_MAX_RAND)
+		# self.wait_between()
 		# inputs = WebDriverWait(driver, 20).until(
 		# 		EC.presence_of_element_located((By.ID ,"enter-password"))
 		# 		)
@@ -267,28 +313,98 @@ class collect(object):
 		pass
 
 
+
+
+	# https://www.djreprints.com/menu/other-services/
+	# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
+	# https://developer.dowjones.com/site/global/home/index.gsp
+	# https://www.wsj.com/search/term.html?KEYWORDS=BIIB&mod=searchresults_viewallresults
+	# OR https://www.wsj.com/market-data/quotes/TSLA
+	#
+	# https://www.wsj.com/news/archive/2020/08/18
 	"""docstring for collect"""
-	def wsj(self):
-		# https://www.djreprints.com/menu/other-services/
-		# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
-		# https://developer.dowjones.com/site/global/home/index.gsp
-		# https://www.wsj.com/search/term.html?KEYWORDS=BIIB&mod=searchresults_viewallresults
-		# OR https://www.wsj.com/market-data/quotes/TSLA
-		return
+	def wsj_arix(self):
+		if os.path.exists(self.fnlist):
+			return
+
+		baseUrl = 'https://www.wsj.com/news/archive/'
+		date = self.collect_end
+		d1 = datetime.timedelta(days=1)
+
+		with open(self.fnlist , "w+") as fo:
+			fo.write("")
+
+		while date > self.collect_start:
+			self.wait_between()
+			date = (date - d1)
+			url = baseUrl + date.strftime('%Y/%m/%d/').lower()
+			print("start  %s", url)
+			news, nextpage = self.wsj_arix_parser(url)
+
+			for page in range(2, nextpage):
+				nurl = url + "?page=" + str(page)
+				news_child, _ = self.wsj_arix_parser(nurl)
+				self.wait_between()
+				news.extend(news_child)
+
+			for news_url in news:
+				with open(self.fnlist , "a") as fo:
+					fo.write(news_url+"\n")
+
+			news = []
+			nextpage = 0
+
+	""" wsj_arix_parser """
+	def wsj_arix_parser(self, url):
+		r = requests.get(url, headers=self.headers)
+		if r.status_code != requests.codes.ok:
+			print("Error On %s : return %s", url, r.status_code)
+			return [[], 0]
+
+		newslinks = [];
+		pages = 0;
+		soup = BeautifulSoup(r.text, 'html.parser')
+		articles = soup.find_all('article')
+
+		for headline in articles :
+			titles = headline.select('h2 a')
+			tags = headline.select('div span')
+			if not tags:
+				continue;
+
+			if not re.search("(Marketing|Markets|Stocks|Business)", tags[0].text):
+				continue
+
+			if not titles:
+				continue
+
+			newslinks.append(titles[0]['href'])
+
+		main = soup.select('#main div[class^="WSJTheme--pagepicker"]')
+		if not main:
+			pages = 0
+		else:
+			pages = main[0].select('div[class*="-option-"]')
+			pages = len(pages)
+
+		return [newslinks, pages]
+
+	def wsj_content(self, url):
+		pass
+
+
 
 
 	"""docstring for collect"""
-	def usat(self):
-		# https://www.usatoday.com/sitemap/2012/march/8/
-
+	def usat_search(self):
 		fn = "./url.temp"
 		if os.path.exists(fn) == True:
 			with open(fn, 'r', newline='', encoding='utf-8') as f:
 				url = f.readline()
 				while url:
 					print(url)
-					self.wait_between(MIN_RAND, MAX_RAND)
-					self.ust_content(url)
+					self.wait_between()
+					self.ust_content(url, True)
 					url = f.readline()
 			try:
 				os.remove(self.newsCsv)
@@ -317,7 +433,7 @@ class collect(object):
 				for arch in links:
 					# print(arch['href'])
 					newslinks.append(base + arch['href'])
-				self.wait_between(MIN_RAND, MAX_RAND)
+				self.wait_between()
 				nextPage.click() # next
 
 				try:
@@ -334,59 +450,124 @@ class collect(object):
 
 		for url in newslinks:
 			# print(url)
-			self.wait_between(MIN_RAND, MAX_RAND)
+			self.wait_between()
 			self.ust_content(url)
 
 		if os.path.exists(fn) == True:
 			os.reomve(fn)
 
 	"""docstring for collect"""
-	def ust_content(self, link):
-		if(self.driver is None):
-			self.setUp()
-		try:
-			self.driver.get(link)
-		except:
-			print("Error:" + link)
+	def ust_sitemap(self):
+		if os.path.exists(self.fnlist):
+			return
+
+		baseUrl = 'https://www.usatoday.com/sitemap/'
+		date = self.collect_end
+		d1 = datetime.timedelta(days=1)
+
+		while date > self.collect_start:
+			self.wait_between()
+			date = (date - d1)
+			url = baseUrl + date.strftime('%Y/%B/%d/').lower()
+			print("start  %s", url)
+			news, nextpage = self.ust_sitemap_parser(url)
+			for nurl in nextpage:
+				news_child, _ = self.ust_sitemap_parser(nurl)
+				self.wait_between()
+				news.extend(news_child)
+
+			for news_url in news:
+				with open(self.fnlist , "w+") as fo:
+					fo.write(news_url+"\n")
+
+			news = nextpage = []
+
+	"""docstring for collect"""
+	def ust_sitemap_parser(self, url):
+		r = requests.get(url, headers=self.headers)
+		if r.status_code != requests.codes.ok:
+			print("Error On %s : return %s", url, r.status_code)
+			return [[], []]
+
+		soup = BeautifulSoup(r.text, 'html.parser')
+		links = soup.find_all(href=re.compile("https://www.usatoday.com/story/money"))
+		newslinks = [];
+		nextlink = [];
+		for node in links:
+			newslinks.append(node['href'])
+
+		page = soup.find_all(href=re.compile("https://www.usatoday.com/sitemap/\d+"))
+		for nextPage in page:
+			if nextPage['href'] == url:
+				continue
+			if nextPage['href'] not in nextlink:
+				nextlink.append(nextPage['href'])
+		return [newslinks, nextlink]
+
+
+	"""docstring for collect"""
+	def ust_content(self, link, csv):
+
+		if link[0:4] == "http":
+			try:
+				title, tid = re.search('\/([\w-]+)\/(\d+)\/$', link).group(1,2)
+			except:
+				self.log("Error : %s" % link)
+				title = ""
+				tid = ""
+			r = requests.get(link, headers=self.headers)
+			if r.status_code != requests.codes.ok:
+				self.log("Error On %s : return %s" % link, r.status_code)
+			text = r.text
+
+		else:
+			text = open(link)
 
 		try:
-			WebDriverWait(self.driver, 40).until(
-					EC.presence_of_element_located((By.CLASS_NAME, 'gnt_ar_hl'))
-				)
-			soup = BeautifulSoup(self.driver.page_source, "html.parser")
+			soup = BeautifulSoup(text, "html.parser")
 
 			dtD = soup.select('article div.gnt_ar_dt')
-			dtD = dtD[0]['aria-label']
-			datetimeGroup = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD)
-			dt = datetime.strptime(datetimeGroup.group(3), '%b. %d, %Y').isoformat()
+			if not dtD:
+				dtD = soup.select('article span.asset-metabar-time')
+				dtD = dtD[0].text
+				ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\ \d+, \d+)', dtD).group(3)
+				dt = datetime.datetime.strptime(ymd, '%B %d, %Y').isoformat()
+			else :
+				dtD = dtD[0]['aria-label']
+				ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\.? \d+, \d+)', dtD).group(3)
+				dt = datetime.datetime.strptime(ymd, '%b. %d, %Y').isoformat()
 
 			artistD = soup.select('article div.gnt_ar_by')
+			if not artistD:
+				artistD = soup.select('article div.asset-metabar span.asset-metabar-author')
+
 			artist = artistD[0].text
 
 			contentD = soup.select('article div.gnt_ar_b')
+			if not contentD:
+				contentD = soup.select('article p.p-text')
+
 			content = contentD[0].text
-			self.toNewsCsv(link, 'usatoday',
-				{"date" : dt, "artist" : artist, "content": content}
-				)
+
+			if csv == True:
+				self.toNewsCsv(
+					link,
+					'usatoday',
+					{"date" : dt, "artist" : artist, "content": content}
+					)
+			else:
+				with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
+					fo.write(content)
 		except:
+			if self.file :
+				pass
+
 			print("timeout : " + link)
 			with open("./tmp/usat_to", 'a') as f:
 				f.write("%s" % link)
 
-			m = hashlib.md5()
-			link = link.encode('utf-8')
-			m.update(link)
-			shash = m.hexdigest()
-			with open("./tmp/usat" + shash + ".html", 'a') as f:
-				f.write(self.driver.page_source)
-			pass
-
-
-	"""docstring for collect"""
-	def ust_sitemap(self):
-		baseUrl = 'https://www.usatoday.com/sitemap/'
-
-		requestResponse = requests.get(url, headers=headers)
+			with open("./tmp/usat_" +title + "__"+ tid + ".html", 'a') as f:
+				f.write(r.text)
 
 
 
@@ -412,6 +593,7 @@ class collect(object):
 			):
 			print(link)
 
+	"""argv bool"""
 	def str2bool(self, v):
 		if isinstance(v, bool):
 		   return v
@@ -441,15 +623,18 @@ class collect(object):
 		self.driver.set_window_size(1024, 1024)
 
 	# Simple logging method
-	def log(s,t=None):
-		now = datetime.now()
+	def log(self,t=None):
+		if not self.debug :
+			return
+
+		now = datetime.datetime.now()
 		if t is None :
 				t = "Main"
-		print ("%s :: %s -> %s " % (str(now), t, s))
+		print ("%s :: %s  " % (str(now), t))
 
 	# Use time.sleep for waiting and uniform for randomizing
-	def wait_between(self, a, b):
-		rand=uniform(a, b)
+	def wait_between(self):
+		rand=uniform(MIN_RAND, MAX_RAND)
 		sleep(rand)
 
 	# Using B-spline for simulate humane like mouse movments
@@ -495,19 +680,20 @@ class collect(object):
 		driver = self.driver
 		action =  ActionChains(driver);
 		self.human_like_mouse_move(action, ele)
-		self.wait_between(MIN_RAND, MAX_RAND)
+		self.wait_between()
 
 	def key_in(self, controller, keys, min_delay=0.05, max_delay=0.25):
 		for key in keys:
 			controller.send_keys(key)
 			sleep(uniform(min_delay,max_delay))
 
+	""" mkdir """
+	def mkdir(self, path):
+		if os.path.isdir(path) == False:
+			os.makedirs(path, exist_ok=True)
 
 
 ###
 if __name__ == '__main__':
 	co = collect()
-	co.setArgv()
-	co.run()
-	# base = 'https://www.usatoday.com'
-	# co.ust_content(base + '/story/money/cars/2018/06/05/americas-best-selling-electric-vehicles/35439337/')
+	co.setArgv().run()

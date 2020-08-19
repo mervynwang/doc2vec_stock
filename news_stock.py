@@ -21,13 +21,16 @@ def daypp(dd, n):
 	dd1 = datetime.timedelta(days=1)
 	while True:
 		ds = dd.isoformat()[0:10]
-		try:
+		if ds in stockDist:
 			return stockDist[ds]
-		except:
-			print("%s : %s", dd, n)
+		print("%s : %s", dd, n)
+		if n == 0:
+			dd = dd - dd1
+		else
 			dd = dd + dd1
-			if dd >= end :
-				break
+
+		if dd >= end :
+			break
 	return False
 
 
