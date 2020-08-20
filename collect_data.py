@@ -105,8 +105,7 @@ class collect(object):
 
 		args = parser.parse_args(namespace=self)
 
-		self.fnlist = "./data/" + self.source + "/news_list"
-		self.mkdir("./data/" + self.source)
+
 
 		if args.reset == True:
 			try:
@@ -122,6 +121,21 @@ class collect(object):
 
 	"""docstring for collect"""
 	def run(self):
+		if self.source == "usatf":
+			self.ust_content(self.file, False)
+
+		if self.source == "wsjf":
+			pass
+			# self.ust_content(self.file, False)
+
+		if self.source == "ftf":
+			pass
+			# self.ust_content(self.file, False)
+
+
+		self.mkdir("./data/" + self.source)
+		self.fnlist = "./data/" + self.source + "/news_list"
+
 		if self.source == "tii":
 			self.daily()
 			self.tii_news()
@@ -137,9 +151,7 @@ class collect(object):
 		if self.source == "ft":
 			self.ft()
 
-		if self.source == "usatf":
-			print(self.source)
-			self.ust_content(self.file, False)
+
 
 	"""docstring for collect"""
 	def tii(self, url, fn):
@@ -517,60 +529,76 @@ class collect(object):
 				tid = ""
 			r = requests.get(link, headers=self.headers)
 			if r.status_code != requests.codes.ok:
-				self.log("Error On %s : return %s" % link, r.status_code)
+				self.log("Error On %s : return %s" % (link, r.status_code))
 			text = r.text
 
 		else:
 			text = open(link)
 
-		try:
-			soup = BeautifulSoup(text, "html.parser")
 
-			dtD = soup.select('article div.gnt_ar_dt')
-			if not dtD:
-				dtD = soup.select('article span.asset-metabar-time')
-				dtD = dtD[0].text
-				ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\ \d+, \d+)', dtD).group(3)
-				dt = datetime.datetime.strptime(ymd, '%B %d, %Y').isoformat()
-			else :
-				dtD = dtD[0]['aria-label']
-				ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\.? \d+, \d+)', dtD).group(3)
-				dt = datetime.datetime.strptime(ymd, '%b. %d, %Y').isoformat()
+		soup = BeautifulSoup(text, "html.parser")
 
-			artistD = soup.select('article div.gnt_ar_by')
-			if not artistD:
-				artistD = soup.select('article div.asset-metabar span.asset-metabar-author')
+		date, artist, content = self.usat_t1(soup) or self.usat_t2(soup)
 
-			artist = artistD[0].text
-
-			contentD = soup.select('article div.gnt_ar_b')
-			if not contentD:
-				contentD = soup.select('article p.p-text')
-
-			content = contentD[0].text
-
-			if csv == True:
-				self.toNewsCsv(
-					link,
-					'usatoday',
-					{"date" : dt, "artist" : artist, "content": content}
-					)
+		if not date :
+			if self.file:
+				print(date, artist, content)
 			else:
-				with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
-					fo.write(content)
-		except:
-			if self.file :
-				pass
+				fn = "./tmp/usat_" +title + "__"+ tid + ".html"
+				self.log("new html type : %s on %s" % (link, fn))
 
-			print("timeout : " + link)
-			with open("./tmp/usat_to", 'a') as f:
-				f.write("%s" % link)
+				with open("./tmp/usat_to", 'a') as f:
+					f.write("%s" % link)
 
-			with open("./tmp/usat_" +title + "__"+ tid + ".html", 'a') as f:
-				f.write(r.text)
+				with open(fn, 'a') as f:
+					f.write(text)
 
 
+		with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
+			fo.write(date + "\n" + artist  + "\n" + content)
 
+
+
+
+	def usat_t1(self, soup):
+		dtD = soup.select('article div.gnt_ar_dt')
+		if not dtD:
+			return False
+
+		dtD = dtD[0]['aria-label']
+		ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\.? \d+, \d+)', dtD).group(3)
+		dt = datetime.datetime.strptime(ymd, '%b. %d, %Y').isoformat()
+
+		artistD = soup.select('article div.gnt_ar_by')
+		artist = artistD[0].text
+
+		contentD = soup.select('article div.gnt_ar_b')
+		content = ''
+		for node in contentD:
+			content += node.text
+		return dt, artist, content
+
+	def usat_t2(self, soup):
+		dtD = soup.select('article span.asset-metabar-time')
+		if not dtD:
+			return False
+
+		dtD = dtD[0].text
+		print(dtD)
+		ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+(:?\ \.)? \d+, \d+)', dtD).group(3)
+		dt = dateutil.parser.parse(ymd)
+		# datetime.datetime.strptime(ymd, '%B %d, %Y').isoformat()
+
+
+		artistD = soup.select('article div.asset-metabar span.asset-metabar-author')
+		artist = artistD[0].text
+
+		contentD = soup.select('article p.p-text')
+		content = ''
+		for node in contentD:
+			content += node.text
+
+		return dt, artist, content
 
 	"""docstring for collect"""
 	def goo_search(self, site):

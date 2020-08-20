@@ -7,36 +7,40 @@ from bs4 import BeautifulSoup
 
 
 
-with open("./data/usat/news_list" , "r") as fo:
-	url = fo.readline().rstrip()
-	while url:
-		print(url)
-		url = fo.readline().rstrip()
+# with open("./data/usat/news_list" , "r") as fo:
+# 	url = fo.readline().rstrip()
+# 	while url:
+# 		print(url)
+# 		url = fo.readline().rstrip()
 
 
-# soup = BeautifulSoup(open("./tmp/usat_3316895001.html"), "html.parser")
+soup = BeautifulSoup(open("./tmp/usat_3316895001.html"), "html.parser")
 
-# dtD = soup.select('article div.gnt_ar_dt')
-# print(dtD)
-# if not dtD:
-# 	dtD = soup.select('article span.asset-metabar-time')
-# 	dtD = dtD[0].text
-# else :
-# 	dtD = dtD[0]['aria-label']
+dtD = soup.select('article div.gnt_ar_dt')
+print(dtD)
+if not dtD:
+	dtD = soup.select('article span.asset-metabar-time')
+	dtD = dtD[0].text
+else :
+	dtD = dtD[0]['aria-label']
 
-# ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD).group(3)
-# dt = datetime.strptime(ymd, '%b. %d, %Y').isoformat()
+ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w{3}\. \d+, \d+)', dtD).group(3)
+dt = datetime.strptime(ymd, '%b. %d, %Y').isoformat()
 
-# artistD = soup.select('article div.gnt_ar_by')
-# if not artistD:
-# 	artistD = soup.select('article div.asset-metabar a')
-# artist = artistD[0].text
+artistD = soup.select('article div.gnt_ar_by')
+if not artistD:
+	artistD = soup.select('article div.asset-metabar a')
+artist = artistD[0].text
 
-# contentD = soup.select('article div.gnt_ar_b')
-# if not contentD:
-# 	contentD = soup.select('article p.p-text')
-# content = contentD.text
+contentD = soup.select('article div.gnt_ar_b')
+if not contentD:
+	contentD = soup.select('article p.p-text')
 
+content = ''
+for node in contentD:
+	content += node.text
+
+print(content)
 
 # row = {"link": "http://link", "date" : dt, "artist" : artist, "content": content}
 # print(row)
