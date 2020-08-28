@@ -11,8 +11,10 @@ from random import uniform, randint
 import requests
 import argparse
 
+
 from fake_useragent import UserAgent
 from googlesearch import search
+from dateutil.parser import parse
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -151,6 +153,8 @@ class collect(object):
 		if self.source == "ft":
 			self.ft()
 
+		if self.source == "eps":
+			self.eps()
 
 
 	"""docstring for collect"""
@@ -184,6 +188,18 @@ class collect(object):
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate="+date+"&token=" + self.tiingo + "&tickers=" + ticker
 		fn = './data/tiinews/' + ticker + "_news.json"
+		self.tii(url, fn)
+
+
+	def eps(self):
+		# https://api.tiingo.com/tiingo/fundamentals/<ticker>/statements?startDate=2019-06-30
+		if self.tiingo is None:
+			return;
+		date = self.collect_start.strftime('%Y-%m-%d')
+		ticker = self.ticker_info[self.ticker]['name']
+		url = "https://api.tiingo.com/tiingo/fundamentals/" + ticker + "/statements?startDate=" + date + '&token=' + self.tiingo
+		print(url)
+		fn = './data/eps/' + ticker + ".json"
 		self.tii(url, fn)
 
 	def stock2Json(self):
@@ -245,13 +261,13 @@ class collect(object):
 		with open(self.fnlist , "r") as fo:
 			for url in fo:
 				i = i + 1
-				url = url.rstrip()
 				if self.nu >= i:
 					continue
 
+				url = url.rstrip()
 				self.log(str(i) + "  " + url);
 				content_parser(url, False)
-				self.wait_between()
+				self.wait_between(True)
 
 	"""docstring for collect"""
 	def ft(self, target):
@@ -320,7 +336,7 @@ class collect(object):
 		pass
 
 	"""docstring for collect"""
-	def fta(self):
+	def ft_conetnet(self):
 		# https://www.gale.com/intl/c/financial-times-historical-archive
 		pass
 
@@ -366,6 +382,30 @@ class collect(object):
 			news = []
 			nextpage = 0
 
+
+	def wsj_login(self):
+		if not self.driver:
+			self.setUp()
+		driver = self.driver
+		loginUrl = 'https://sso.accounts.dowjones.com/login?state=g6Fo2SBiYlhrLUZCUmY1b0xiVTBsZkF0UTkyMEZEX3ozOXZpNKN0aWTZIGJBaEN4R2dDcGQzY3hIYktyZFJGazRjZlBmZVZ2czllo2NpZNkgNWhzc0VBZE15MG1KVElDbkpOdkM5VFhFdzNWYTdqZk8&client=5hssEAdMy0mJTICnJNvC9TXEw3Va7jfO&protocol=oauth2&scope=openid%20idp_id%20roles%20email%20given_name%20family_name%20djid%20djUsername%20djStatus%20trackid%20tags%20prts&response_type=code&redirect_uri=https%3A%2F%2Faccounts.wsj.com%2Fauth%2Fsso%2Flogin&nonce=2f4078c1-39fe-4c4a-9abe-a36a8399ad40&ui_locales=en-us-x-wsj-83-2&ns=prod%2Faccounts-wsj&savelogin=on#!/signin'
+		driver.get(loginUrl)
+
+		login = WebDriverWait(driver, 20).until(
+		EC.presence_of_element_located((By.XPATH ,
+			'//*[@id="username"]')) #sign-in
+		)
+		self.moveWait(login)
+		self.key_in(login, self.account)
+
+		pw = EC.presence_of_element_located((By.ID ,'//*[@id="password"]'))
+		self.key_in(pw, self.password)
+		self.moveWait(pw)
+
+		driver.find_element_by_xpath('//*[@id="basic-login"]/div[1]/form/div/div[6]/div[1]/button').click()
+
+
+
+
 	""" wsj_arix_parser """
 	def wsj_arix_parser(self, url):
 		r = requests.get(url, headers=self.headers)
@@ -402,6 +442,16 @@ class collect(object):
 		return [newslinks, pages]
 
 	def wsj_content(self, url):
+
+
+
+		soup = BeautifulSoup(r.text, 'html.parser')
+
+		titleDoms = soup.select("article h1.wsj-article-headline")
+
+		artistDoms = soup.select("article div.author-container")
+
+		contentDom = soup.select("article div.wsj-snippet-body")
 		pass
 
 
@@ -526,11 +576,15 @@ class collect(object):
 			except:
 				self.log("Error : %s" % link)
 				title = ""
-				tid = ""
-			r = requests.get(link, headers=self.headers)
-			if r.status_code != requests.codes.ok:
-				self.log("Error On %s : return %s" % (link, r.status_code))
-			text = r.text
+				tid = "0"
+
+			try:
+				r = requests.get(link, headers=self.headers)
+				if r.status_code != requests.codes.ok:
+					self.log("Error On %s : return %s" % (link, r.status_code))
+				text = r.text
+			except:
+				self.log("Error %s : %s" % (sys.exc_info()[0], link) )
 
 		else:
 			text = open(link)
@@ -538,12 +592,17 @@ class collect(object):
 
 		soup = BeautifulSoup(text, "html.parser")
 
-		date, artist, content = self.usat_t1(soup) or self.usat_t2(soup)
-
-		if not date :
-			if self.file:
-				print(date, artist, content)
+		try:
+			date, artist, content = self.usat_t1(soup) or self.usat_t2(soup)
+			if date:
+				with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
+					fo.write(date + "\n" + artist  + "\n" + content)
 			else:
+				self.log("Error date is False : %s" % (link) )
+
+		except:
+			self.log("Error %s : %s" % (sys.exc_info()[0], link) )
+			if not self.file:
 				fn = "./tmp/usat_" +title + "__"+ tid + ".html"
 				self.log("new html type : %s on %s" % (link, fn))
 
@@ -552,22 +611,19 @@ class collect(object):
 
 				with open(fn, 'a') as f:
 					f.write(text)
+		finally:
+			pass
 
 
-		with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
-			fo.write(date + "\n" + artist  + "\n" + content)
-
-
-
-
+	"""type 1"""
 	def usat_t1(self, soup):
 		dtD = soup.select('article div.gnt_ar_dt')
 		if not dtD:
 			return False
 
 		dtD = dtD[0]['aria-label']
-		ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+\.? \d+, \d+)', dtD).group(3)
-		dt = datetime.datetime.strptime(ymd, '%b. %d, %Y').isoformat()
+		ymd = re.search('(\d+:\d+) +[ap]\.m\. +\w+ (\w+[\ \.]*\d+, +\d+)', dtD).group(2)
+		dt = parse(ymd).date()
 
 		artistD = soup.select('article div.gnt_ar_by')
 		artist = artistD[0].text
@@ -576,18 +632,17 @@ class collect(object):
 		content = ''
 		for node in contentD:
 			content += node.text
-		return dt, artist, content
+		return ste(dt), artist, content
 
+	"""type 2"""
 	def usat_t2(self, soup):
 		dtD = soup.select('article span.asset-metabar-time')
 		if not dtD:
 			return False
 
-		dtD = dtD[0].text
-		print(dtD)
-		ymd = re.search('(\d+:\d+) (a\.m\.|p\.m\.) \w+ (\w+(:?\ \.)? \d+, \d+)', dtD).group(3)
-		dt = dateutil.parser.parse(ymd)
-		# datetime.datetime.strptime(ymd, '%B %d, %Y').isoformat()
+		dtD = dtD[0].text    #Published 6:00 a.m. ET Dec. 5, 2019 | Updated 4:34 p.m. ET Dec. 5, 2019
+		ymd = re.search('(\d+:\d+) +[ap]\.m\. +\w+ (\w+[\ \.]*\d+, +\d+)', dtD).group(2)
+		dt = parse(ymd).date()
 
 
 		artistD = soup.select('article div.asset-metabar span.asset-metabar-author')
@@ -598,7 +653,9 @@ class collect(object):
 		for node in contentD:
 			content += node.text
 
-		return dt, artist, content
+		return str(dt), artist, content
+
+
 
 	"""docstring for collect"""
 	def goo_search(self, site):
@@ -661,8 +718,11 @@ class collect(object):
 		print ("%s :: %s  " % (str(now), t))
 
 	# Use time.sleep for waiting and uniform for randomizing
-	def wait_between(self):
-		rand=uniform(MIN_RAND, MAX_RAND)
+	def wait_between(self, longer = False):
+		if longer :
+			rand=uniform(MIN_RAND, LONG_MAX_RAND)
+		else:
+			rand=uniform(MIN_RAND, MAX_RAND)
 		sleep(rand)
 
 	# Using B-spline for simulate humane like mouse movments
