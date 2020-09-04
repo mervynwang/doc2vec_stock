@@ -12,31 +12,30 @@ import numpy as np
 
 class preProcess(object):
 
-    """
-    Class to create a doc2vec model
-    """
+    processor = ''
+    path = ''
+    model = ''
+    tagged_data = None
+
 
     def __init__(self):
-
-        self.path = ''
-        self.model = './data/'
         self.tagged_data = []
 
     """docstring for collect"""
     def setArgv(self):
         parser = argparse.ArgumentParser(description='preprocess BOW, word2vec, doc2vec')
-        parser.add_argument('-b', '--bow', type=self.str2bool, default=False, help='headless mode (1|0)')
-        parser.add_argument('-w', '--word', type=self.str2bool, default=False, help='headless mode (1|0)')
-        parser.add_argument('-d', '--doc', type=self.str2bool, default=False, help='headless mode (1|0)')
 
-        parser.add_argument('-p', '--path', type=str, default='./data/', help='news folder')
-        parser.add_argument('-s', '--save', type=str, default='./data/', help='model save to')
+        parser.add_argument('-p', '--path', type=str, help='news folder')
+        parser.add_argument('-s', '--model', type=str, default='./data/', help='model save to')
+
+        parser.add_argument('processor', help='bow|word2vec|doc2vec|load')
         args = parser.parse_args(namespace=self)
 
-        if not self.path:
+        if not self.path or not self.processor:
             parser.print_help()
             exit()
 
+        self.processor = self.processor.lower()
         self.path = os.path.realpath(self.path)
 
         # nltk.download('')
@@ -48,36 +47,49 @@ class preProcess(object):
 
     """docstring for collect"""
     def run(self):
-        if self.bow:
+        if self.processor == "bow":
             pass
 
-        if self.word:
+        if self.processor == "word2vec":
             pass
 
-        if self.doc:
-            self.model = "./data/doc2vec"
-            self.prepare_data().train_doc2vec()
+        if self.processor == "doc2vec":
+            self.save = "./data/doc2vec"
+            self.prepare_doc_data().train_doc2vec()
+
+        if self.processor == "load":
+            vec = np.load(self.path)
+            print(vec)
 
 
-    def prepare_data(self):
+    def prepare_word_data(self):
         data = []
         tag = []
-        i = 0
 
-        # simple for loops to get all the articles and add them to the data and tag list
         for newspaper in os.listdir(self.path):
-            data.append(open(self.path + '/' +newspaper, 'rb').read())
-            tag.append(newspaper[0:7])
-            i += 1
+            with open(self.path + '/' +newspaper, 'r') as f:
+                for i, line in enumerate(f.read().splitlines(True)):
+                    words = nltk.tokenize.word_tokenize(line.strip().lower())
+                    self.tagged_data.append(words)
 
-        # tagging all the articles
-        self.tagged_data = [ gensim.models.doc2vec.TaggedDocument(words=nltk.tokenize.word_tokenize(str(_d.lower())), tags=[str(tag[i])]) for i, _d in
-                            enumerate(data)]
+        return self
 
-        # Freeing memory
+    def train_word2vec(self, max_epochs=15, vec_size=200, alpha=0.025):
 
+        model = gensim.models.Word2Vec(self.tagged_data, min_count=1)
+
+
+
+    def prepare_doc_data(self):
         data = []
         tag = []
+
+        for newspaper in os.listdir(self.path):
+            with open(self.path + '/' +newspaper, 'r') as f:
+                for i, line in enumerate(f.read().splitlines(True)):
+                    words = nltk.tokenize.word_tokenize(line.strip().lower())
+                    self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[newspaper[0:7] + "_" +  str(i)] ))
+
 
         return self
 
@@ -89,7 +101,7 @@ class preProcess(object):
         :param alpha: Learning rate used in the gradient descent
         :return:
         """
-        model = Doc2Vec(vector_size=vec_size, alpha=alpha, min_alpha=0.025, min_count=5,
+        model = gensim.models.doc2vec.Doc2Vec(vector_size=vec_size, alpha=alpha, min_alpha=0.025, min_count=5,
                         dm=1, workers=30)
 
         model.build_vocab(self.tagged_data)
@@ -106,16 +118,11 @@ class preProcess(object):
             model.min_alpha = model.alpha
 
         model.save(self.model)
-        print("Model savec")
+        print("Model saved")
 
     def clean_train_model(self):
 
-        """
-        Aims at using the model trainned by first deleting the temporary training data. Use it carefully you can lose all the progress made in the training.
-        :return:
-        """
-
-        model = Doc2Vec.load(self.model_path)
+        model = gensim.models.doc2vec.Doc2Vec.load(self.model)
         # Be careful here
         model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
 
@@ -126,7 +133,7 @@ class preProcess(object):
         :return:
 
         """
-        model = Doc2Vec.load(self.model_path)
+        model = gensim.models.doc2vec.Doc2Vec.load(self.model)
 
         model.docvecs.doctags
 
@@ -148,7 +155,7 @@ class preProcess(object):
         :return:
         """
 
-        model = Doc2Vec.load(self.model_path)
+        model = gensim.models.doc2vec.Doc2Vec.load(self.model_path)
 
         print(type(model.docvecs.doctags))
 
@@ -176,5 +183,5 @@ class preProcess(object):
 
 if __name__ == '__main__':
     model = preProcess()
-    model.setArgv().prepare_data()
+    model.setArgv().run()
 

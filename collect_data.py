@@ -136,7 +136,7 @@ class collect(object):
 
 
 		self.mkdir("./data/" + self.source)
-		self.fnlist = "./data/" + self.source + "/news_list"
+		self.fnlist = "./data/news_list_" + self.source
 
 		if self.source == "tii":
 			self.daily()
@@ -595,8 +595,8 @@ class collect(object):
 		try:
 			date, artist, content = self.usat_t1(soup) or self.usat_t2(soup)
 			if date:
-				with open("./data/usat/"+ tid + "-"+ title , "a") as fo:
-					fo.write(date + "\n" + artist  + "\n" + content)
+				with open("./data/usat/"+ date + '_' + tid  , "a") as fo:
+					fo.write(content)
 			else:
 				self.log("Error date is False : %s" % (link) )
 
