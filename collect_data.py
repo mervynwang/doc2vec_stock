@@ -305,15 +305,15 @@ class collect(object):
 			self.key_in(inputs, self.password)
 			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		print("google recaptcha wait... ... 3mins")
-		sleep(100)
+		print("google recaptcha wait... ...80 sec")
+		sleep(80)
 		print("20sec left... ... ")
 		sleep(20)
 		print("go next... ")
 
 
 		''' After login, Index Go search '''
-		keywords = ['TSLA', 'Alphabet Inc', 'AMD', 'BIIB']
+		keywords = ['Tesla Inc', 'Alphabet Inc', 'AMD', 'BIIB']
 		for kw in keywords:
 			self.ft_list(kw)
 		self.ft_conetnet()
@@ -345,14 +345,14 @@ class collect(object):
 
 		# #site-content a.search-pagination__next-page
 		# nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
-		nextPageClass = '//a[@class="search-pagination__next-page o-buttons o-buttons--secondary o-buttons-icon o-buttons-icon--arrow-right o-buttons--big o-buttons-icon--icon-only"]'  # all match
+		nextPagePath = '//a[@class="search-pagination__next-page o-buttons o-buttons--secondary o-buttons-icon o-buttons-icon--arrow-right o-buttons--big o-buttons-icon--icon-only"]'  # all match
 		WebDriverWait(self.driver, 20, 6).until(
 			EC.presence_of_element_located((By.XPATH, nextPagePath))
 		)
 		nextPage = self.driver.find_element_by_xpath(nextPagePath)
 
 		while nextPage is not None:
-			soup = BeautifulSoup(driver.page_source, 'html.parser')
+			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 			ul = soup.select('main ul[class="search-results__list"] li')
 			for li in ul:
 				header = li.find('a', class_='js-teaser-heading-link')
@@ -379,7 +379,7 @@ class collect(object):
 			self.wait_between()
 			self.driver.get(url)
 			self.wait_between()
-			soup = BeautifulSoup(driver.page_source, 'html.parser')
+			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
 			try:
 				content = soup.find('div', class_="article__content-body")
