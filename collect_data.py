@@ -322,6 +322,8 @@ class collect(object):
 
 
 	def ft_list(self, keyword):
+		print(keyword)
+
 		WebDriverWait(self.driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
 		self.driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
 		inputs = self.driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
@@ -360,22 +362,29 @@ class collect(object):
 				time = li.find('time')
 				url = header['href']
 				self.links.append(header['href'])
-				with open("./data/ft_news_list" , "w+") as fo:
+				with open("./data/ft_news_list" , "a+") as fo:
 					writer = csv.writer(fo)
-					writer.writerow([keyword, time, header, url])
+					writer.writerow([keyword, time.text, header.text, url])
 
-			try:
-				nextPage = WebDriverWait(driver, 20).until(
-					EC.presence_of_element_located((By.XPATH, nextPagePath)))
-			except:
-				print("nextPage None")
-				nextPage = None
+			self.wait_between()
+			sleep(3)
+
+			nextPage = WebDriverWait(self.driver, 20).until(
+				EC.presence_of_element_located((By.XPATH, nextPagePath)))
+
+			print(nextPage)
+
 
 
 	"""docstring for collect"""
-	def ft_conetnet(self, date):
+	def ft_conetnet(self):
+		baseUrl = 'https://www.ft.com/'
+
 		for url in self.links:
 			tid = re.search('\/([\w-]+)$', url).group(1)
+			if url[0:4] == "http":
+				url = baseUrl + url
+
 			self.wait_between()
 			self.driver.get(url)
 			self.wait_between()
