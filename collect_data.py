@@ -22,6 +22,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.keys import Keys
 
 from bs4 import BeautifulSoup
 
@@ -82,7 +83,7 @@ class collect(object):
 
 
 	def __del__(self):
-		if(self.driver is not None):
+		if self.driver is not None and self.quit :
 			self.driver.quit()
 
 
@@ -102,12 +103,11 @@ class collect(object):
 
 		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv (1|0)')
 		parser.add_argument('-d', '--debug', type=self.str2bool, default=True, help='debug info (1|0)')
+		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source', help='wsj|usat|ft|tii|eps')
 
 		args = parser.parse_args(namespace=self)
-
-
 
 		if args.reset == True:
 			try:
@@ -305,10 +305,10 @@ class collect(object):
 			self.key_in(inputs, self.password)
 			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		print("google recaptcha wait... ... 5mins")
-		sleep(160)
-		print("1min left... ... ")
-		sleep(60)
+		print("google recaptcha wait... ... 3mins")
+		sleep(100)
+		print("20sec left... ... ")
+		sleep(20)
 		print("go next... ")
 
 
@@ -326,15 +326,16 @@ class collect(object):
 		self.driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
 		inputs = self.driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
 		inputs.send_keys(keyword)
-		# inputs.send_keys(:enter)
+		inputs.send_keys(Keys.RETURN)
 
 		try:
 			# sort by date;
-			#
 			# //*[@id="site-content"]/div/div[1]/div[1]/div[1]/div/div[2]/a[2]
+			#
 			WebDriverWait(self.driver, 10, 6).until(
 				EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[2]/div/div/div/main/div/div[1]/div[1]/div[1]/div/div[2]/a[2]'))
 				).click()
+
 			self.wait_between()
 		except:
 			print("sort by date no found")
@@ -343,6 +344,9 @@ class collect(object):
 			pass
 
 		nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
+		WebDriverWait(self.driver, 20, 6).until(
+			EC.presence_of_element_located((By.XPATH, nextPagePath))
+		)
 		nextPage = self.driver.find_element_by_xpath(nextPagePath)
 
 		while nextPage is not None:
