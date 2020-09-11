@@ -326,6 +326,7 @@ class collect(object):
 	def ft_list(self, ticker, keyword):
 		print(keyword)
 
+		self.driver.get('https://www.ft.com')
 		WebDriverWait(self.driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
 		self.driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
 		inputs = self.driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
@@ -348,10 +349,7 @@ class collect(object):
 			pass
 
 		nextPagePath = '//a[@class="search-pagination__next-page o-buttons o-buttons--secondary o-buttons-icon o-buttons-icon--arrow-right o-buttons--big o-buttons-icon--icon-only"]'  # all match
-		WebDriverWait(self.driver, 20, 6).until(
-			EC.presence_of_element_located((By.XPATH, nextPagePath))
-		)
-		nextPage = self.driver.find_element_by_xpath(nextPagePath)
+		nextPage = True
 
 		i = 0
 		while nextPage is not None:
@@ -368,8 +366,7 @@ class collect(object):
 					writer = csv.writer(fo)
 					writer.writerow([ticker, time.text, header.text, url])
 
-			self.wait_between()
-			sleep(3)
+			self.wait_between(True)
 
 			try:
 				nextPage = WebDriverWait(self.driver, 20, 1).until(
@@ -391,16 +388,17 @@ class collect(object):
 
 		i = 0
 		for url in self.links:
-			tid = re.search('\/([\w-]+)$', url).group(1)
-			if url[0:4] == "http":
-				url = baseUrl + url
-
-			self.wait_between()
-			self.driver.get(url)
-			self.wait_between()
-			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-
 			try:
+				tid = re.search('\/([\w-]+)$', url).group(1)
+				if url[0:4] == "http":
+					url = baseUrl + url
+
+				self.wait_between()
+				self.driver.get(url)
+				self.wait_between()
+				soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+
+
 				content = soup.find('div', class_="article__content-body")
 				ps = content.find_all('p')
 				ts = soup.find('time')
