@@ -51,19 +51,19 @@ class collect(object):
 	stockDict = {}
 	ticker_info = {
 				'google' : {
-					'keywords' : ['GOOGL', 'Alphabet'],
+					'keywords' : ['Alphabet Inc', 'Google LLC'],
 					'name' : 'GOOGL'
 				},
 				'biogen' : {
-					'keywords' : ['Biogen', 'BIIB'],
+					'keywords' : ['Biogen Idec Inc'],
 					'name' : 'BIIB'
 				},
 				'tesla' : {
-					'keywords' : ['elon musk', 'TSLA', 'tesla'],
+					'keywords' : ['Tesla Inc', 'elon musk', 'TSLA'],
 					'name' : 'TSLA'
 				},
 				'amd'  : {
-					'keywords' : ['Advanced Micro Devices', 'AMD'],
+					'keywords' : ['Advanced Micro Devices Inc', 'AMD'],
 					'name' : 'AMD'
 				}
 			}
@@ -313,15 +313,17 @@ class collect(object):
 
 
 		''' After login, Index Go search '''
-		keywords = ['Tesla Inc', 'Alphabet Inc', 'AMD', 'BIIB']
-		for kw in keywords:
-			self.ft_list(kw)
+		for ticker in self.ticker_info:
+			for kw in self.ticker_info[ticker]['keywords']:
+				self.ft_list(ticker, kw)
+
+		self.links = list(dict.fromkeys(self.links))
 		self.ft_conetnet()
 
 		# done
 
 
-	def ft_list(self, keyword):
+	def ft_list(self, ticker, keyword):
 		print(keyword)
 
 		WebDriverWait(self.driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
@@ -345,14 +347,13 @@ class collect(object):
 		finally:
 			pass
 
-		# #site-content a.search-pagination__next-page
-		# nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
 		nextPagePath = '//a[@class="search-pagination__next-page o-buttons o-buttons--secondary o-buttons-icon o-buttons-icon--arrow-right o-buttons--big o-buttons-icon--icon-only"]'  # all match
 		WebDriverWait(self.driver, 20, 6).until(
 			EC.presence_of_element_located((By.XPATH, nextPagePath))
 		)
 		nextPage = self.driver.find_element_by_xpath(nextPagePath)
 
+		i = 0
 		while nextPage is not None:
 			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 			ul = soup.select('main ul[class="search-results__list"] li')
@@ -361,18 +362,26 @@ class collect(object):
 				subtitle = li.find('div', class_='o-teaser__meta')
 				time = li.find('time')
 				url = header['href']
+				i = i +1
 				self.links.append(header['href'])
 				with open("./data/ft_news_list" , "a+") as fo:
 					writer = csv.writer(fo)
-					writer.writerow([keyword, time.text, header.text, url])
+					writer.writerow([ticker, time.text, header.text, url])
 
 			self.wait_between()
 			sleep(3)
 
-			nextPage = WebDriverWait(self.driver, 20).until(
-				EC.presence_of_element_located((By.XPATH, nextPagePath)))
+			try:
+				nextPage = WebDriverWait(self.driver, 20, 1).until(
+					EC.presence_of_element_located((By.XPATH, nextPagePath)))
+				nextPage.click()
+				# print(nextPage)
+			except:
+				nextPage = None
+				print("End, Next kw, total %s", i)
 
-			print(nextPage)
+			finally:
+				pass
 
 
 
@@ -380,6 +389,7 @@ class collect(object):
 	def ft_conetnet(self):
 		baseUrl = 'https://www.ft.com/'
 
+		i = 0
 		for url in self.links:
 			tid = re.search('\/([\w-]+)$', url).group(1)
 			if url[0:4] == "http":
@@ -405,20 +415,21 @@ class collect(object):
 					fo.write(content)
 
 			except:
-				self.log("Error %s : %s" % (sys.exc_info()[0], link) )
+				self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], url) )
 
 				fn = "./tmp/ft_" + date + "_"+ tid + ".html"
 				self.log("new html type : %s on %s" % (url, fn))
 
 				# log url
 				with open("./tmp/ft_to", 'a') as f:
-					f.write("%s" % link)
+					f.write("%s" % url)
 
 				# write html content
 				with open(fn, 'a') as f:
 					f.write(text)
 
 			finally:
+				i = i+1
 				pass
 
 
