@@ -11,7 +11,6 @@ from random import uniform, randint
 import requests
 import argparse
 
-
 from fake_useragent import UserAgent
 from googlesearch import search
 from dateutil.parser import parse
@@ -69,6 +68,7 @@ class collect(object):
 			}
 
 	newsCsv = './data/news.csv'
+	links = []
 
 
 
@@ -103,7 +103,7 @@ class collect(object):
 		parser.add_argument('-r', '--reset', type=self.str2bool, default=False, help='clean csv (1|0)')
 		parser.add_argument('-d', '--debug', type=self.str2bool, default=True, help='debug info (1|0)')
 
-		parser.add_argument('source', help='wsj|usat|ft|tii')
+		parser.add_argument('source', help='wsj|usat|ft|tii|eps')
 
 		args = parser.parse_args(namespace=self)
 
@@ -151,6 +151,10 @@ class collect(object):
 			self.newslist_fetch(self.wsj_content)
 
 		if self.source == "ft":
+			if self.account is None:
+				print("need account ")
+				exit()
+
 			self.ft()
 
 		if self.source == "eps":
@@ -270,7 +274,7 @@ class collect(object):
 				self.wait_between(True)
 
 	"""docstring for collect"""
-	def ft(self, target):
+	def ft(self):
 		self.setUp()
 		driver = self.driver
 
@@ -280,66 +284,127 @@ class collect(object):
 		EC.presence_of_element_located((By.XPATH ,
 			"/html/body/div/div[1]/header[1]/nav[2]/div/ul[2]/li[1]/a")) #sign-in
 		)
-		self.moveWait(login)
 		login.click()
 
+		''' Login '''
 		WebDriverWait(driver, 20).until(
 				EC.presence_of_element_located((By.ID ,"enter-email"))
 				)
 
-		# #account
-		# inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
-		# self.key_in(inputs, self.account)
-		# self.moveWait(inputs)
-		# self.wait_between()
-		# driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
+		#account
+		inputs = driver.find_element_by_xpath('//*[@id="enter-email"]')
+		self.key_in(inputs, self.account)
+		driver.find_element_by_xpath('//*[@id="enter-email-next"]').click()
+
+		#password
+		inputs = WebDriverWait(driver, 20).until(
+				EC.presence_of_element_located((By.ID ,"enter-password"))
+				)
+
+		if self.password is not None:
+			self.key_in(inputs, self.password)
+			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
+
+		print("google recaptcha wait... ... 5mins")
+		sleep(160)
+		print("1min left... ... ")
+		sleep(60)
+		print("go next... ")
 
 
-		# #password
-		# self.wait_between()
-		# inputs = WebDriverWait(driver, 20).until(
-		# 		EC.presence_of_element_located((By.ID ,"enter-password"))
-		# 		)
+		''' After login, Index Go search '''
+		keywords = ['TSLA', 'Alphabet Inc', 'AMD', 'BIIB']
+		for kw in keywords:
+			self.ft_list(kw)
+		self.ft_conetnet()
 
-		# self.moveWait(inputs)
-		# self.key_in(inputs, self.password)
-		# self.moveWait(inputs)
-		# driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
+		# done
 
 
+	def ft_list(self, keyword):
+		WebDriverWait(self.driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
+		self.driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
+		inputs = self.driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
+		inputs.send_keys(keyword)
+		# inputs.send_keys(:enter)
 
-		WebDriverWait(driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
-		driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
-		inputs = driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
-		inputs.send_keys(target)
+		try:
+			# sort by date;
+			#
+			# //*[@id="site-content"]/div/div[1]/div[1]/div[1]/div/div[2]/a[2]
+			WebDriverWait(self.driver, 10, 6).until(
+				EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[2]/div/div/div/main/div/div[1]/div[1]/div[1]/div/div[2]/a[2]'))
+				).click()
+			self.wait_between()
+		except:
+			print("sort by date no found")
+			pass
+		finally:
+			pass
 
-		WebDriverWait(driver, 40, 6).until(EC.presence_of_element_located((By.XPATH, "o-header-search-primary")))
-		driver.find_element_by_xpath('//*[@id="o-header-search-primary"]/div/form/button[1]').click()
+		nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
+		nextPage = self.driver.find_element_by_xpath(nextPagePath)
 
-		# soup = BeautifulSoup(driver.page_source, 'html.parser')
-		# # soup.find_all("")
-		# content = soup.body.get_text()
-		# print(content)
+		while nextPage is not None:
+			soup = BeautifulSoup(driver.page_source, 'html.parser')
+			ul = soup.select('main ul[class="search-results__list"] li')
+			for li in ul:
+				header = li.find('a', class_='js-teaser-heading-link')
+				subtitle = li.find('div', class_='o-teaser__meta')
+				time = li.find('time')
+				url = header['href']
+				self.links.append(header['href'])
+				with open("./data/ft_news_list" , "w+") as fo:
+					writer = csv.writer(fo)
+					writer.writerow([keyword, time, header, url])
 
-		# ## o-teaser__content > o-teaser__heading > a
-		# ## o-teaser__content > o-teaser__timestamp > time
+			try:
+				nextPage = WebDriverWait(driver, 20).until(
+					EC.presence_of_element_located((By.XPATH, nextPagePath)))
+			except:
+				print("nextPage None")
+				nextPage = None
 
-		# NEXT_Page XPTH /html/body/div[1]/div[2]/div/div/div/main/div/div[4]/div/a[2]
-
-		# header   : .topper__content h1.topper__headline > span
-		# subtitle : .topper__content .topper__standfirst
-
-		# time     : #site-content article-info article-info__timestamp o-date
-		# content  : #site-content article__content-body
-
-
-		pass
 
 	"""docstring for collect"""
-	def ft_conetnet(self):
-		# https://www.gale.com/intl/c/financial-times-historical-archive
-		pass
+	def ft_conetnet(self, date):
+		for url in self.links:
+			tid = re.search('\/([\w-]+)$', url).group(1)
+			self.wait_between()
+			self.driver.get(url)
+			self.wait_between()
+			soup = BeautifulSoup(driver.page_source, 'html.parser')
 
+			try:
+				content = soup.find('div', class_="article__content-body")
+				ps = content.find_all('p')
+				ts = soup.find('time')
+				ts = ts['datetime']
+				ts = parse(ts).date()
+				date = str(ts)
+				content = ''
+				for p in ps:
+					content = content + p.text
+
+				with open("./data/ft/"+ date + '_' + tid  , "a") as fo:
+					fo.write(content)
+
+			except:
+				self.log("Error %s : %s" % (sys.exc_info()[0], link) )
+
+				fn = "./tmp/ft_" + date + "_"+ tid + ".html"
+				self.log("new html type : %s on %s" % (url, fn))
+
+				# log url
+				with open("./tmp/ft_to", 'a') as f:
+					f.write("%s" % link)
+
+				# write html content
+				with open(fn, 'a') as f:
+					f.write(text)
+
+			finally:
+				pass
 
 
 
@@ -603,7 +668,7 @@ class collect(object):
 		except:
 			self.log("Error %s : %s" % (sys.exc_info()[0], link) )
 			if not self.file:
-				fn = "./tmp/usat_" +title + "__"+ tid + ".html"
+				fn = "./tmp/usat_" + date + "__"+ tid + ".html"
 				self.log("new html type : %s on %s" % (link, fn))
 
 				with open("./tmp/usat_to", 'a') as f:
@@ -632,7 +697,7 @@ class collect(object):
 		content = ''
 		for node in contentD:
 			content += node.text
-		return ste(dt), artist, content
+		return str(dt), artist, content
 
 	"""type 2"""
 	def usat_t2(self, soup):

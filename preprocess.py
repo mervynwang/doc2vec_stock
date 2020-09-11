@@ -1,11 +1,17 @@
 # coding: utf-8
-import sys, json, os
+import sys, json, os, pickle
+
 
 import argparse, gensim, nltk
 import numpy as np
 
 #from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 # from nltk.tokenize import word_tokenize
+
+
+# import spacy
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 
@@ -15,7 +21,8 @@ class preProcess(object):
     processor = ''
     path = ''
     model = ''
-    tagged_data = None
+    tagged_data = []
+    stopwords = None
 
 
     def __init__(self):
@@ -45,51 +52,94 @@ class preProcess(object):
 
         return self
 
+
     """docstring for collect"""
     def run(self):
+        self.stopwords = set(nltk.corpus.stopwords.words('english'))
+        for w in ['!',',','.','?','-s','-ly','</s>','s', '%', '$', "'", '`', '@', "''"]:
+            self.stopwords.add(w)
+
         if self.processor == "bow":
-            pass
+            self.prepare_bow().train_bow()
 
         if self.processor == "word2vec":
-            pass
+            self.prepare_word_data().train_word2vec()
 
         if self.processor == "doc2vec":
-            self.save = "./data/doc2vec"
             self.prepare_doc_data().train_doc2vec()
 
         if self.processor == "load":
             vec = np.load(self.path)
             print(vec)
+            # model = gensim.models.doc2vec.Doc2Vec.load(self.path)
+            # vector = model.docvecs['0000_40']
+            # print(type(vector))
+
+
+
+    # https://colab.research.google.com/drive/14HcWVXEQ8OwUuNLcYWg0ZDT1RtpMVl7b#forceEdit=true&sandboxMode=true&scrollTo=8iElYoMOhSIy
+    def prepare_bow(self):
+        j = 0
+        for newspaper in os.listdir(self.path):
+            with open(self.path + '/' +newspaper, 'r') as f:
+                for i, line in enumerate(f.read().splitlines(True)):
+                    line = line.strip("\n ")
+                    if len(line) == 0:
+                        continue
+
+                    words = nltk.tokenize.word_tokenize(line.lower())
+                    filtered_words = [word for word in words if word not in self.stopwords]
+                    line = ' '.join(filtered_words)
+                    self.tagged_data.append(line)
+
+            # print(newspaper)
+            # j = j + 1
+            # if j >= 10 :
+            #     break;
+
+        return self
+
+    def train_bow(self):
+        vectorizer = CountVectorizer() # 初始化這個詞袋vectorizer
+        word_vectors = vectorizer.fit_transform(self.tagged_data)
+
+        # print('Features:', vectorizer.get_feature_names())
+        # print('Values: \n', word_vectors.toarray())
+        with open(self.model + '_bow.pkl', 'wb') as handle:
+            pickle.dump(word_vectors, handle) #, protocol=pickle.HIGHEST_PROTOCOL
+
 
 
     def prepare_word_data(self):
-        data = []
-        tag = []
+    # https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf
 
         for newspaper in os.listdir(self.path):
             with open(self.path + '/' +newspaper, 'r') as f:
                 for i, line in enumerate(f.read().splitlines(True)):
                     words = nltk.tokenize.word_tokenize(line.strip().lower())
-                    self.tagged_data.append(words)
+                    filtered_words = [word for word in words if word not in self.stopwords]
+                    self.tagged_data.append(filtered_words)
 
         return self
 
-    def train_word2vec(self, max_epochs=15, vec_size=200, alpha=0.025):
+    def train_word2vec(self):
 
         model = gensim.models.Word2Vec(self.tagged_data, min_count=1)
+        model.save(self.model)
+        print("Model saved")
+
 
 
 
     def prepare_doc_data(self):
-        data = []
-        tag = []
 
         for newspaper in os.listdir(self.path):
             with open(self.path + '/' +newspaper, 'r') as f:
                 for i, line in enumerate(f.read().splitlines(True)):
                     words = nltk.tokenize.word_tokenize(line.strip().lower())
-                    self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[newspaper[0:7] + "_" +  str(i)] ))
-
+                    if len(words) == 0:
+                        continue;
+                    self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[newspaper[-7:] + "_" +  str(i)] ))
 
         return self
 
