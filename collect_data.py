@@ -343,7 +343,9 @@ class collect(object):
 		finally:
 			pass
 
-		nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
+		# #site-content a.search-pagination__next-page
+		# nextPagePath = '//*[@id="site-content"]/div/div[4]/div/a[2]'
+		nextPageClass = '//a[@class="search-pagination__next-page o-buttons o-buttons--secondary o-buttons-icon o-buttons-icon--arrow-right o-buttons--big o-buttons-icon--icon-only"]'  # all match
 		WebDriverWait(self.driver, 20, 6).until(
 			EC.presence_of_element_located((By.XPATH, nextPagePath))
 		)
