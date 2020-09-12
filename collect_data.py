@@ -430,22 +430,19 @@ class collect(object):
 
 		i = 0
 		for url in self.links:
+			self.wait_between(True)
 			try:
 				tid = re.search('\/([\w-]+)$', url).group(1)
 				if url[0:4] == "http":
 					goUrl = baseUrl + url
 				print(goUrl)
 
-				# WebDriverWait(self.driver, 10, 6).until(
-				# 	EC.presence_of_element_located((By.XPATH, sortByRele))
-				# 	)
-				self.wait_between()
+				WebDriverWait(self.driver, 10).until(
+					EC.presence_of_element_located((By.XPATH, '//*[@id="site-content"]'))
+					)
 				self.driver.get(goUrl)
-				self.wait_between(True)
-
 
 				soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-
 
 				content = soup.find('div', class_="article__content-body")
 				ps = content.find_all('p')
