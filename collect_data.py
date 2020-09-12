@@ -423,7 +423,6 @@ class collect(object):
 
 		print("total %s", len(self.links))
 		self.ft_login()
-		sleep(5)
 		self.ft_conetnet()
 
 
@@ -432,6 +431,7 @@ class collect(object):
 		baseUrl = 'https://www.ft.com'
 
 		i = 0
+		goUrl = ''
 		for url in self.links:
 			self.wait_between(True)
 			try:
@@ -450,7 +450,7 @@ class collect(object):
 				# log url
 				with open("./tmp/ft_to", 'a+') as f:
 					f.write(url)
-				pass
+				continue
 
 			try:
 				WebDriverWait(self.driver, 10).until(
