@@ -414,7 +414,7 @@ class collect(object):
 		with open("./data/ft_news_list") as cf:
 			rows = csv.reader(cf)
 			for line in rows:
-				self.links.append(line[4])
+				self.links.append(line[3])
 
 		self.links = list(dict.fromkeys(self.links))
 
