@@ -445,7 +445,14 @@ class collect(object):
 					goUrl = baseUrl + url
 				else:
 					goUrl = url
+			except:
+				self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], url) )
+				# log url
+				with open("./tmp/ft_to", 'a+') as f:
+					f.write(url)
+				pass
 
+			try:
 				WebDriverWait(self.driver, 10).until(
 					EC.presence_of_element_located((By.XPATH, '//*[@id="site-content"]'))
 					)
@@ -463,7 +470,7 @@ class collect(object):
 				for p in ps:
 					content = content + p.text
 
-				with open("./data/ft/"+ date + '_' + tid  , "a") as fo:
+				with open("./data/ft/"+ date + '_' + tid  , "w+") as fo:
 					fo.write(content)
 
 			except:
@@ -477,7 +484,7 @@ class collect(object):
 					f.write(url)
 
 				# write html content
-				with open(fn, 'a') as f:
+				with open(fn, 'w') as f:
 					f.write(self.driver.page_source)
 
 			finally:
