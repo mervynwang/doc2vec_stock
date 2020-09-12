@@ -433,7 +433,7 @@ class collect(object):
 		i = 0
 		goUrl = ''
 		for url in self.links:
-			self.wait_between(True)
+
 			try:
 				tid = re.search('\/([\w-]+)$', url).group(1)
 
@@ -449,14 +449,15 @@ class collect(object):
 				self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], url) )
 				# log url
 				with open("./tmp/ft_to", 'a+') as f:
-					f.write(url)
+					f.write("%s \n" % url)
 				continue
 
 			try:
+				self.wait_between(True)
+				self.driver.get(goUrl)
 				WebDriverWait(self.driver, 10).until(
 					EC.presence_of_element_located((By.XPATH, '//*[@id="site-content"]'))
 					)
-				self.driver.get(goUrl)
 
 				soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
@@ -476,12 +477,12 @@ class collect(object):
 			except:
 				self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], url) )
 
-				fn = "./tmp/ft_" + date + "_"+ tid + ".html"
+				fn = "./tmp/ft_" + tid + ".html"
 				self.log("new html type : %s on %s" % (url, fn))
 
 				# log url
 				with open("./tmp/ft_to", 'a+') as f:
-					f.write(url)
+					f.write("%s \n" % url)
 
 				# write html content
 				with open(fn, 'w') as f:
