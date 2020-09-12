@@ -305,29 +305,35 @@ class collect(object):
 			self.key_in(inputs, self.password)
 			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		print("google recaptcha wait... ...80 sec")
-		sleep(80)
+		print("google recaptcha wait... ...120 sec")
+		sleep(120)
 		print("20sec left... ... ")
 		sleep(20)
-		print("go next... ")
+		print("go search... ")
 
+		#  do check recaptcha completed
 
 		''' After login, Index Go search '''
 		for ticker in self.ticker_info:
 			for kw in self.ticker_info[ticker]['keywords']:
-				self.ft_list(ticker, kw)
+				self.ft_list(ticker, kw, 1)
+				self.ft_list(ticker, kw, 2)
+			self.links = list(dict.fromkeys(self.links))
 
-		self.links = list(dict.fromkeys(self.links))
+			# for log
+			for url in self.links:
+				with open("./tmp/ft_to_"+ticker , 'a+') as f:
+					f.write("%s\n" % url)
+
 		self.ft_conetnet()
-
 		# done
 
 
-	def ft_list(self, ticker, keyword):
+	def ft_list(self, ticker, keyword, sortBy = 1):
 		print(keyword)
 
 		self.driver.get('https://www.ft.com')
-		WebDriverWait(self.driver, 20, 6).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
+		WebDriverWait(self.driver, 40, 1).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
 		self.driver.find_element_by_xpath('//*[@id="site-navigation"]/div[1]/div/div/div[1]/a[2]').click()
 		inputs = self.driver.find_element_by_xpath('//*[@id="o-header-search-term-primary"]')
 		inputs.send_keys(keyword)
@@ -336,10 +342,17 @@ class collect(object):
 		try:
 			# sort by date;
 			# //*[@id="site-content"]/div/div[1]/div[1]/div[1]/div/div[2]/a[2]
-			#
-			WebDriverWait(self.driver, 10, 6).until(
-				EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[2]/div/div/div/main/div/div[1]/div[1]/div[1]/div/div[2]/a[2]'))
-				).click()
+			sortByRele = '/html/body/div[1]/div[2]/div/div/div/main/div/div[1]/div[1]/div[1]/div/div[2]/a[1]'
+			sortByDate = '/html/body/div[1]/div[2]/div/div/div/main/div/div[1]/div[1]/div[1]/div/div[2]/a[2]'
+
+			if sortBy == 1:
+				WebDriverWait(self.driver, 10, 6).until(
+					EC.presence_of_element_located((By.XPATH, sortByRele))
+					)
+			else:
+				WebDriverWait(self.driver, 10, 6).until(
+					EC.presence_of_element_located((By.XPATH, sortByDate))
+					).click()
 
 			self.wait_between()
 		except:
@@ -353,6 +366,7 @@ class collect(object):
 
 		i = 0
 		while nextPage is not None:
+			self.wait_between(True)
 			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 			ul = soup.select('main ul[class="search-results__list"] li')
 			for li in ul:
@@ -366,16 +380,19 @@ class collect(object):
 					writer = csv.writer(fo)
 					writer.writerow([ticker, time.text, header.text, url])
 
-			self.wait_between(True)
-
+				self.wait_between()
 			try:
 				nextPage = WebDriverWait(self.driver, 20, 1).until(
 					EC.presence_of_element_located((By.XPATH, nextPagePath)))
 				nextPage.click()
-				# print(nextPage)
+
 			except:
+				print(nextPage)
 				nextPage = None
 				print("End, Next kw, total %s", i)
+
+				with open("./tmp/ft_"+ keyword.replace(' ', '_')  +"_end.html", 'a') as f:
+					f.write(self.driver.page_source)
 
 			finally:
 				pass
@@ -384,18 +401,24 @@ class collect(object):
 
 	"""docstring for collect"""
 	def ft_conetnet(self):
-		baseUrl = 'https://www.ft.com/'
+		baseUrl = 'https://www.ft.com'
 
 		i = 0
 		for url in self.links:
 			try:
 				tid = re.search('\/([\w-]+)$', url).group(1)
 				if url[0:4] == "http":
-					url = baseUrl + url
+					goUrl = baseUrl + url
+				print(goUrl)
 
+				# WebDriverWait(self.driver, 10, 6).until(
+				# 	EC.presence_of_element_located((By.XPATH, sortByRele))
+				# 	)
 				self.wait_between()
-				self.driver.get(url)
-				self.wait_between()
+				self.driver.get(goUrl)
+				self.wait_between(True)
+
+
 				soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
 
@@ -424,7 +447,7 @@ class collect(object):
 
 				# write html content
 				with open(fn, 'a') as f:
-					f.write(text)
+					f.write(self.driver.page_source)
 
 			finally:
 				i = i+1
