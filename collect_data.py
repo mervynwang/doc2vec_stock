@@ -330,6 +330,7 @@ class collect(object):
 			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
 		print("google recaptcha wait... ...")
+		wait = True
 		while wait:
 			try:
 				#  do check recaptcha completed
@@ -414,6 +415,8 @@ class collect(object):
 		with open("./data/ft_news_list") as cf:
 			rows = csv.reader(cf)
 			for line in rows:
+				if len(line) != 4 :
+					continue;
 				self.links.append(line[3])
 
 		self.links = list(dict.fromkeys(self.links))
@@ -433,8 +436,11 @@ class collect(object):
 			self.wait_between(True)
 			try:
 				tid = re.search('\/([\w-]+)$', url).group(1)
-				if url[0:4] == "http":
+				if url[0:4] != "http":
 					goUrl = baseUrl + url
+				else:
+					goUrl = url
+
 				print(goUrl)
 
 				WebDriverWait(self.driver, 10).until(
