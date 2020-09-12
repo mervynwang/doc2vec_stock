@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-import sys, os, re, csv, hashlib, datetime
+import sys, os, re, csv, hashlib, datetime, glob
 
 # from datetime import datetime
 from time import sleep, time
@@ -436,6 +436,11 @@ class collect(object):
 			self.wait_between(True)
 			try:
 				tid = re.search('\/([\w-]+)$', url).group(1)
+
+				fexisted = glob.glob('./data/ft/*'+tid)
+				if len(fexisted) != 0:
+					continue
+
 				if url[0:4] != "http":
 					goUrl = baseUrl + url
 				else:
