@@ -157,6 +157,13 @@ class collect(object):
 
 			self.ft()
 
+		if self.source == "ftc":
+			if self.account is None:
+				print("need account ")
+				exit()
+
+			self.ft_formCsv()
+
 		if self.source == "eps":
 			self.eps()
 
@@ -193,7 +200,6 @@ class collect(object):
 		url = "https://api.tiingo.com/tiingo/news?startDate="+date+"&token=" + self.tiingo + "&tickers=" + ticker
 		fn = './data/tiinews/' + ticker + "_news.json"
 		self.tii(url, fn)
-
 
 	def eps(self):
 		# https://api.tiingo.com/tiingo/fundamentals/<ticker>/statements?startDate=2019-06-30
@@ -275,6 +281,24 @@ class collect(object):
 
 	"""docstring for collect"""
 	def ft(self):
+		self.ft_login()
+
+		''' After login, Index Go search '''
+		for ticker in self.ticker_info:
+			for kw in self.ticker_info[ticker]['keywords']:
+				self.ft_search(ticker, kw, 1)
+				self.ft_search(ticker, kw, 2)
+			self.links = list(dict.fromkeys(self.links))
+
+			# for log
+			for url in self.links:
+				with open("./tmp/ft_to_"+ticker , 'a+') as f:
+					f.write("%s\n" % url)
+
+		self.ft_conetnet()
+		# done
+
+	def ft_login(self):
 		self.setUp()
 		driver = self.driver
 
@@ -305,31 +329,19 @@ class collect(object):
 			self.key_in(inputs, self.password)
 			driver.find_element_by_xpath('//*[@id="sign-in-button"]').click()
 
-		print("google recaptcha wait... ...120 sec")
-		sleep(120)
-		print("20sec left... ... ")
-		sleep(20)
+		print("google recaptcha wait... ...")
+		while wait:
+			try:
+				#  do check recaptcha completed
+				WebDriverWait(self.driver, 120, 1).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
+				wait = False
+			except NoSuchElementException:
+				wait = True
+				pass
 		print("go search... ")
 
-		#  do check recaptcha completed
 
-		''' After login, Index Go search '''
-		for ticker in self.ticker_info:
-			for kw in self.ticker_info[ticker]['keywords']:
-				self.ft_list(ticker, kw, 1)
-				self.ft_list(ticker, kw, 2)
-			self.links = list(dict.fromkeys(self.links))
-
-			# for log
-			for url in self.links:
-				with open("./tmp/ft_to_"+ticker , 'a+') as f:
-					f.write("%s\n" % url)
-
-		self.ft_conetnet()
-		# done
-
-
-	def ft_list(self, ticker, keyword, sortBy = 1):
+	def ft_search(self, ticker, keyword, sortBy = 1):
 		print(keyword)
 
 		self.driver.get('https://www.ft.com')
@@ -397,6 +409,19 @@ class collect(object):
 			finally:
 				pass
 
+
+	def ft_formCsv(self):
+		with open("./data/ft_news_list") as cf:
+			rows = csv.reader(fo)
+			for line in rows:
+				self.links.append(line[4])
+
+		self.links = list(dict.fromkeys(self.links))
+
+		print("total %s", len(self.links))
+		self.ft_login()
+		sleep(5)
+		self.ft_conetnet()
 
 
 	"""docstring for collect"""
