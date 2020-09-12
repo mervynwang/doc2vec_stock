@@ -473,8 +473,8 @@ class collect(object):
 				self.log("new html type : %s on %s" % (url, fn))
 
 				# log url
-				with open("./tmp/ft_to", 'a') as f:
-					f.write("%s" % url)
+				with open("./tmp/ft_to", 'a+') as f:
+					f.write(url)
 
 				# write html content
 				with open(fn, 'a') as f:
