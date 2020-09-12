@@ -446,8 +446,6 @@ class collect(object):
 				else:
 					goUrl = url
 
-				print(goUrl)
-
 				WebDriverWait(self.driver, 10).until(
 					EC.presence_of_element_located((By.XPATH, '//*[@id="site-content"]'))
 					)
