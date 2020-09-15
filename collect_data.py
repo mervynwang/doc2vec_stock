@@ -227,7 +227,13 @@ class collect(object):
 
 	"""docstring for collect"""
 	def toNewsCsv(self, fn, source, ticker, ds):
+		start = datetime.datetime(2013, 1, 1)
 		date = datetime.datetime.strptime(ds, '%Y-%m-%d')
+
+		# usa today arix from 2012-10, fetch data from 20130101 - 20200530
+		if date < start:
+			return
+
 		st0 = self.dayMove(ticker, date, 0)
 		st7 = self.dayMove(ticker, date, 7)
 		st30 = self.dayMove(ticker, date, 30)

@@ -12,7 +12,7 @@ import numpy as np
 # import spacy
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
-
+from wordcloud import WordCloud
 
 
 
@@ -22,6 +22,7 @@ class preProcess(object):
     path = ''
     model = ''
     tagged_data = []
+    fnlist = []
     stopwords = None
 
 
@@ -32,41 +33,54 @@ class preProcess(object):
     def setArgv(self):
         parser = argparse.ArgumentParser(description='preprocess BOW, word2vec, doc2vec')
 
-        parser.add_argument('-p', '--path', type=str, help='news folder')
-        parser.add_argument('-s', '--model', type=str, default='./data/', help='model save to')
+        parser.add_argument('-p', '--path',
+            nargs='+', required=True,
+            help='news folders e.g. -p folder1 folder2 ... ')
 
-        parser.add_argument('processor', help='bow|word2vec|doc2vec|load')
+        parser.add_argument('-s', '--model', type=str,
+            required=True,
+            help='model save to')
+
+        parser.add_argument('-e', '--height', default=400, type=int,
+            help='wordcloud image height')
+
+        parser.add_argument('-w', '--width', default=800, type=int,
+            help='wordcloud image width')
+
+        parser.add_argument('-t', '--stop', nargs='+',
+            help='stop words ')
+
+        parser.add_argument('processor',
+            choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'load'],
+            help='main function')
+
         args = parser.parse_args(namespace=self)
 
-        if not self.path or not self.processor:
-            parser.print_help()
-            exit()
 
         self.processor = self.processor.lower()
-        self.path = os.path.realpath(self.path)
+        for i in range(len(self.path)):
+            self.path[i] = os.path.realpath(self.path[i])
+            if not os.path.exists(self.path[i]):
+                print("Directory not existed %s " % self.path[i])
+                exit()
 
-        # nltk.download('')
-        if not os.path.exists(self.path):
-            print("Directory not existed %s ", self.path)
-            exit()
+        self.stopwords = set(nltk.corpus.stopwords.words('english'))
+
+        self.stop = self.stop + ['!',',','.','?','-s','-ly','</s>','s',
+            '%', '$', "'", '`', '@', "''", 'us', 'year',
+            'new', 'today', 'usa', 'say']
+        for w in self.stop:
+            self.stopwords.add(w)
 
         return self
 
 
     """docstring for collect"""
     def run(self):
-        self.stopwords = set(nltk.corpus.stopwords.words('english'))
-        for w in ['!',',','.','?','-s','-ly','</s>','s', '%', '$', "'", '`', '@', "''"]:
-            self.stopwords.add(w)
+        getattr(self, self.processor)()
 
         # if self.processor == "bow":
         #     self.prepare_bow().train_bow()
-
-        if self.processor == "word2vec":
-            self.prepare_word_data().train_word2vec()
-
-        if self.processor == "doc2vec":
-            self.prepare_doc_data().train_doc2vec()
 
         if self.processor == "load":
             vec = np.load(self.path)
@@ -76,12 +90,39 @@ class preProcess(object):
             # print(type(vector))
 
 
+    def open_folder(self):
+        for folder in self.path:
+            for fn in os.listdir(folder):
+                self.fnlist.append(folder + '/' + fn)
+
+
+    def wordcloud(self):
+        self.open_folder()
+        text = ''
+        for fn in self.fnlist:
+            with open(fn, 'r', encoding='utf-8') as news:
+                words = nltk.tokenize.word_tokenize(news.read())
+                filtered_words = [word for word in words if word not in self.stopwords]
+                text = text + ' '.join(filtered_words)
+                words = filtered_words = None
+
+        cloud = WordCloud(
+            stopwords=self.stopwords,
+            max_words=400,
+            width=self.width,
+            height=self.height
+            ).generate(text)
+        cloud.to_file(self.model)
+
+
+    def dow(self):
+        pass
 
     # https://colab.research.google.com/drive/14HcWVXEQ8OwUuNLcYWg0ZDT1RtpMVl7b#forceEdit=true&sandboxMode=true&scrollTo=8iElYoMOhSIy
     def prepare_bow(self):
         j = 0
-        for newspaper in os.listdir(self.path):
-            with open(self.path + '/' +newspaper, 'r') as f:
+        for news_fn in self.fnlist:
+            with open(news_fn, 'r') as f:
                 for i, line in enumerate(f.read().splitlines(True)):
                     line = line.strip("\n ")
                     if len(line) == 0:
@@ -92,7 +133,7 @@ class preProcess(object):
                     line = ' '.join(filtered_words)
                     self.tagged_data.append(line)
 
-            # print(newspaper)
+            # print(news_fn)
             # j = j + 1
             # if j >= 10 :
             #     break;
@@ -109,12 +150,14 @@ class preProcess(object):
             pickle.dump(word_vectors, handle) #, protocol=pickle.HIGHEST_PROTOCOL
 
 
+    def word2vec(self):
+        self.open_folder()
+        self.prepare_word_data().train_word2vec()
 
     def prepare_word_data(self):
-    # https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf
-
-        for newspaper in os.listdir(self.path):
-            with open(self.path + '/' +newspaper, 'r') as f:
+        # https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf
+        for news_fn in self.fnlist:
+            with open(news_fn, 'r') as f:
                 for i, line in enumerate(f.read().splitlines(True)):
                     words = nltk.tokenize.word_tokenize(line.strip().lower())
                     filtered_words = [word for word in words if word not in self.stopwords]
@@ -129,17 +172,20 @@ class preProcess(object):
         print("Model saved")
 
 
-
+    def doc2vec(self):
+        self.open_folder()
+        self.prepare_doc_data().train_doc2vec()
 
     def prepare_doc_data(self):
 
-        for newspaper in os.listdir(self.path):
-            with open(self.path + '/' +newspaper, 'r') as f:
+        for news_fn in self.fnlist:
+            with open(news_fn, 'r') as f:
                 for i, line in enumerate(f.read().splitlines(True)):
                     words = nltk.tokenize.word_tokenize(line.strip().lower())
+                    # empty line
                     if len(words) == 0:
                         continue;
-                    self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[newspaper[-7:] + "_" +  str(i)] ))
+                    self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[news_fn[-7:] + "_" +  str(i)] ))
 
         return self
 
