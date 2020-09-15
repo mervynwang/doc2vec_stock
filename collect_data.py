@@ -165,7 +165,7 @@ class collect(object):
 			self.ft_formCsv()
 
 		if self.source == "eps":
-			self.eps()
+			self.tii_eps()
 
 
 	"""docstring for collect"""
@@ -188,7 +188,7 @@ class collect(object):
 		date = self.collect_start.strftime('%Y-%m-%d')
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate="+date+"&token=" + self.tiingo
-		fn = './data/stock/' + ticker+"_prices.json"
+		fn = './data/prices_' + ticker+  '.json'
 		self.tii(url, fn)
 
 	"""docstring for collect"""
@@ -198,10 +198,10 @@ class collect(object):
 		date = self.collect_start.strftime('%Y-%m-%d')
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate="+date+"&token=" + self.tiingo + "&tickers=" + ticker
-		fn = './data/tiinews/' + ticker + "_news.json"
+		fn = './data/tii_news ' + ticker + ' .json'
 		self.tii(url, fn)
 
-	def eps(self):
+	def tii_eps(self):
 		# https://api.tiingo.com/tiingo/fundamentals/<ticker>/statements?startDate=2019-06-30
 		if self.tiingo is None:
 			return;
@@ -209,7 +209,7 @@ class collect(object):
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/fundamentals/" + ticker + "/statements?startDate=" + date + '&token=' + self.tiingo
 		print(url)
-		fn = './data/eps/' + ticker + ".json"
+		fn = './data/eps_' + ticker + ".json"
 		self.tii(url, fn)
 
 	def stock2Json(self):
@@ -279,11 +279,12 @@ class collect(object):
 				content_parser(url, False)
 				self.wait_between(True)
 
-	"""docstring for collect"""
+
+	""" ft login , search, & fetch content """
 	def ft(self):
 		self.ft_login()
 
-		''' After login, Index Go search '''
+		""" After login, Index Go search """
 		for ticker in self.ticker_info:
 			for kw in self.ticker_info[ticker]['keywords']:
 				self.ft_search(ticker, kw, 1)
@@ -298,6 +299,7 @@ class collect(object):
 		self.ft_conetnet()
 		# done
 
+	""" login """
 	def ft_login(self):
 		self.setUp()
 		driver = self.driver
@@ -341,7 +343,7 @@ class collect(object):
 				pass
 		print("go search... ")
 
-
+	""" serch """
 	def ft_search(self, ticker, keyword, sortBy = 1):
 		print(keyword)
 
@@ -389,7 +391,7 @@ class collect(object):
 				url = header['href']
 				i = i +1
 				self.links.append(header['href'])
-				with open("./data/ft_news_list" , "a+") as fo:
+				with open(self.fnlist , "a+") as fo:
 					writer = csv.writer(fo)
 					writer.writerow([ticker, time.text, header.text, url])
 
@@ -410,9 +412,9 @@ class collect(object):
 			finally:
 				pass
 
-
+	""" when search completed, content parser error goes from there"""
 	def ft_formCsv(self):
-		with open("./data/ft_news_list") as cf:
+		with open(self.fnlist) as cf:
 			rows = csv.reader(cf)
 			for line in rows:
 				if len(line) != 4 :
@@ -426,7 +428,7 @@ class collect(object):
 		self.ft_conetnet()
 
 
-	"""docstring for collect"""
+	"""content page parser"""
 	def ft_conetnet(self):
 		baseUrl = 'https://www.ft.com'
 
@@ -555,8 +557,6 @@ class collect(object):
 		driver.find_element_by_xpath('//*[@id="basic-login"]/div[1]/form/div/div[6]/div[1]/button').click()
 
 
-
-
 	""" wsj_arix_parser """
 	def wsj_arix_parser(self, url):
 		r = requests.get(url, headers=self.headers)
@@ -591,6 +591,8 @@ class collect(object):
 			pages = len(pages)
 
 		return [newslinks, pages]
+
+
 
 	def wsj_content(self, url):
 
@@ -669,7 +671,7 @@ class collect(object):
 		if os.path.exists(fn) == True:
 			os.reomve(fn)
 
-	"""docstring for collect"""
+	""" usa today : fetch from archive, collect all financial news """
 	def ust_sitemap(self):
 		if os.path.exists(self.fnlist):
 			return

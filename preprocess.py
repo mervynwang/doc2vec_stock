@@ -59,8 +59,8 @@ class preProcess(object):
         for w in ['!',',','.','?','-s','-ly','</s>','s', '%', '$', "'", '`', '@', "''"]:
             self.stopwords.add(w)
 
-        if self.processor == "bow":
-            self.prepare_bow().train_bow()
+        # if self.processor == "bow":
+        #     self.prepare_bow().train_bow()
 
         if self.processor == "word2vec":
             self.prepare_word_data().train_word2vec()
@@ -170,53 +170,8 @@ class preProcess(object):
         model.save(self.model)
         print("Model saved")
 
-    def clean_train_model(self):
-
-        model = gensim.models.doc2vec.Doc2Vec.load(self.model)
-        # Be careful here
-        model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
-
-    def test_doc2vec(self):
-
-        """
-        To test the  model
-        :return:
-
-        """
-        model = gensim.models.doc2vec.Doc2Vec.load(self.model)
-
-        model.docvecs.doctags
-
-        # test_data = word_tokenize("Odorizzi".lower())
-        # test_data2 = word_tokenize("Page".lower())
-
-        # v1 = model.infer_vector(test_data)
-        # v2 = model.infer_vector(test_data2)
-
-        # to print the vectorized article using tags
-        vector = model.docvecs['0000_40']
-        print(type(vector))
-        print("Vector of document:", vector)
-
-    def readFile(self):
-
-        """
-        To read the files created by doc2vec model
-        :return:
-        """
-
-        model = gensim.models.doc2vec.Doc2Vec.load(self.model_path)
-
-        print(type(model.docvecs.doctags))
-
-        file = np.load('/Users/rugerypierrick/PycharmProjects/doc2vec/d2v.model.docvecs.vectors_docs.npy')
-
-        fil2 = np.load('/Users/rugerypierrick/PycharmProjects/doc2vec/d2v.model.trainables.syn1neg.npy')
-
-        file3 = np.load('/Users/rugerypierrick/PycharmProjects/doc2vec/d2v.model.wv.vectors.npy')
 
 
-        print(file3)
 
     """argv bool"""
     def str2bool(self, v):
