@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 
-import sys, os, re, csv, hashlib, datetime, glob
+import sys, os, re, csv, hashlib, datetime, glob, json, math
 
 # from datetime import datetime
 from time import sleep, time
@@ -52,19 +52,23 @@ class collect(object):
 	ticker_info = {
 				'google' : {
 					'keywords' : ['Alphabet Inc', 'Google LLC'],
-					'name' : 'GOOGL'
+					'name' : 'GOOGL',
+					'stock':{}
 				},
 				'biogen' : {
 					'keywords' : ['Biogen Idec Inc'],
-					'name' : 'BIIB'
+					'name' : 'BIIB',
+					'stock':{}
 				},
 				'tesla' : {
 					'keywords' : ['Tesla Inc', 'elon musk', 'TSLA'],
-					'name' : 'TSLA'
+					'name' : 'TSLA',
+					'stock':{}
 				},
 				'amd'  : {
 					'keywords' : ['Advanced Micro Devices Inc', 'AMD'],
-					'name' : 'AMD'
+					'name' : 'AMD',
+					'stock':{}
 				}
 			}
 
@@ -91,9 +95,8 @@ class collect(object):
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
 		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode (1|0)')
-		parser.add_argument('-n', '--nu', type=int, default=0, help='news list start from nu')
+		# parser.add_argument('-n', '--nu', type=int, default=0, help='news list start from nu')
 
-		parser.add_argument('-s', '--ticker', type=str, help='stock name(google|biogen|tesla|amd)')
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
 
 		parser.add_argument('-a', '--account', type=str, help='news account')
@@ -105,17 +108,24 @@ class collect(object):
 		parser.add_argument('-d', '--debug', type=self.str2bool, default=True, help='debug info (1|0)')
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
-		parser.add_argument('source', help='wsj|usat|ft|tii|eps')
+		parser.add_argument('source',
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv'],
+			help='data source'
+			)
 
 		args = parser.parse_args(namespace=self)
+
+		if "_" in self.source:
+			to = self.source.index("_")
+			self.fnlist = "./data/news_list_" + self.source[0:to]
+		else:
+			self.fnlist = "./data/news_list_" + self.source
+			self.mkdir("./data/" + self.source)
 
 		if args.reset == True:
 			try:
 				os.remove(self.fnlist+'.bak')
 				os.rename(self.fnlist, self.fnlist+'.bak')
-
-				# os.remove(self.newsCsv)
-				# os.rename(self.newsCsv, self.newsCsv+'.bak')
 			except OSError:
 				pass
 
@@ -123,53 +133,18 @@ class collect(object):
 
 	"""docstring for collect"""
 	def run(self):
-		if self.source == "usatf":
-			self.ust_content(self.file, False)
-
-		if self.source == "wsjf":
-			pass
-			# self.ust_content(self.file, False)
-
-		if self.source == "ftf":
-			pass
-			# self.ust_content(self.file, False)
+		getattr(self, self.source)()
 
 
-		self.mkdir("./data/" + self.source)
-		self.fnlist = "./data/news_list_" + self.source
-
-		if self.source == "tii":
-			self.daily()
+	def tii(self):
+		for t in self.ticker_info:
+			self.ticker = self.ticker_info[t]['name']
+			self.tii_daily()
 			self.tii_news()
-
-		if self.source == "usat":
-			self.ust_sitemap()
-			self.newslist_fetch(self.ust_content)
-
-		if self.source == "wsj":
-			self.wsj_arix()
-			self.newslist_fetch(self.wsj_content)
-
-		if self.source == "ft":
-			if self.account is None:
-				print("need account ")
-				exit()
-
-			self.ft()
-
-		if self.source == "ftc":
-			if self.account is None:
-				print("need account ")
-				exit()
-
-			self.ft_formCsv()
-
-		if self.source == "eps":
 			self.tii_eps()
 
-
 	"""docstring for collect"""
-	def tii(self, url, fn):
+	def tiiapi(self, url, fn):
 		if url is None or fn is None:
 			return
 		headers = {
@@ -181,7 +156,7 @@ class collect(object):
 		return
 
 	"""docstring for collect"""
-	def daily(self):
+	def tii_daily(self):
 		if self.tiingo is None:
 			return;
 
@@ -189,7 +164,7 @@ class collect(object):
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/daily/" + ticker + "/prices?startDate="+date+"&token=" + self.tiingo
 		fn = './data/prices_' + ticker+  '.json'
-		self.tii(url, fn)
+		self.tiiapi(url, fn)
 
 	"""docstring for collect"""
 	def tii_news(self):
@@ -199,7 +174,7 @@ class collect(object):
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/news?startDate="+date+"&token=" + self.tiingo + "&tickers=" + ticker
 		fn = './data/tii_news ' + ticker + ' .json'
-		self.tii(url, fn)
+		self.tiiapi(url, fn)
 
 	def tii_eps(self):
 		# https://api.tiingo.com/tiingo/fundamentals/<ticker>/statements?startDate=2019-06-30
@@ -208,21 +183,28 @@ class collect(object):
 		date = self.collect_start.strftime('%Y-%m-%d')
 		ticker = self.ticker_info[self.ticker]['name']
 		url = "https://api.tiingo.com/tiingo/fundamentals/" + ticker + "/statements?startDate=" + date + '&token=' + self.tiingo
-		print(url)
 		fn = './data/eps_' + ticker + ".json"
-		self.tii(url, fn)
+		self.tiiapi(url, fn)
 
 	def stock2Json(self):
-		ticker = self.ticker_info[self.ticker]['name']
-		fn = './data/stock/' + ticker+ "_prices.json"
-		with open(fn, 'r') as stock:
-			stockList = json.load(stock)
-			for node in stockList:
-				date = node['date'][0:10]
-				self.stockDist[date] = node
+		for ticker in self.ticker_info:
+			# ticker = self.ticker_info[t]['name']
+			fn = './data/prices_' + ticker + '.json'
+			try:
+				with open(fn, 'r') as stock:
+					stockList = json.load(stock)
+					for node in stockList:
+						date = node['date'][0:10]
+						avg = (node['high'] + node['low'])/2
+						dateNode = {'d': date, 'h': node['high'], 'l':node['low'], 'a': avg}
+
+						self.ticker_info[ticker]['stock'][date] = dateNode
+			except:
+				self.log("Error %s : %s" % (sys.exc_info()[0], fn) )
+
 
 	"""docstring for collect"""
-	def dayMove(self, dd, n):
+	def dayMove(self, ticker, dd, n):
 		end = datetime.datetime(2020, 5, 30)
 
 		if n > 0 :
@@ -230,8 +212,8 @@ class collect(object):
 		dd1 = datetime.timedelta(days=1)
 		while True:
 			ds = dd.isoformat()[0:10]
-			if ds in self.stockDist:
-				return self.stockDist[ds]
+			if ds in self.ticker_info[ticker]['stock']:
+				return self.ticker_info[ticker]['stock'][ds]
 
 			# print("%s : %s", dd, n)
 			if n == 0:
@@ -244,26 +226,32 @@ class collect(object):
 		return False
 
 	"""docstring for collect"""
-	def toNewsCsv(self, url, source, ds):
-		date = datetime.strptime(ds['date'][0:10], '%Y-%m-%d')
-		st0 = self.dayMove(date, 0)
-		st7 = self.dayMove(date, 7)
-		st30 = self.dayMove(date, 30)
+	def toNewsCsv(self, fn, source, ticker, ds):
+		date = datetime.datetime.strptime(ds, '%Y-%m-%d')
+		st0 = self.dayMove(ticker, date, 0)
+		st7 = self.dayMove(ticker, date, 7)
+		st30 = self.dayMove(ticker, date, 30)
+
+		if not st0 or not st7 or not st30:
+			return
+
+		d7 = math.floor(((st0['a'] - st7['a'])/st0['a'] )* 100)
+		d30 = math.floor(((st0['a'] - st30['a'])/st0['a'] )* 100)
 
 		with open(self.newsCsv, 'a', newline='') as csvfile:
-			fieldnames = ['link', 'date', 'artist', 'content', 'ticker', 'source', '0d', '7d', '1m']
+			fieldnames = [ 'source', 'date', 'ticker', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-			writer.writeheader()
+			# writer.writeheader()
 			writer.writerow({
-				'link' : url,
-				'date' : ds['date'],
-				'artist' : ds['artist'],
-				'content' : ds['content'],
-				'ticker' : self.ticker,
 				'source' : source,
-				'0d' : st0,
-				'7d' : st7,
-				'1m' : st30,
+				'date' : ds,
+				'ticker' : ticker,
+				'content_fp' : fn,
+				'0dr' : st0,
+				'7dr' : st7,
+				'30dr' : st30,
+				'7d' : d7,
+				'30d' : d30,
 				})
 
 	def newslist_fetch(self, content_parser):
@@ -301,6 +289,10 @@ class collect(object):
 
 	""" login """
 	def ft_login(self):
+		if self.account is None:
+			print("need account")
+			exit()
+
 		self.setUp()
 		driver = self.driver
 
@@ -413,7 +405,7 @@ class collect(object):
 				pass
 
 	""" when search completed, content parser error goes from there"""
-	def ft_formCsv(self):
+	def ft_arix(self):
 		with open(self.fnlist) as cf:
 			rows = csv.reader(cf)
 			for line in rows:
@@ -426,7 +418,6 @@ class collect(object):
 		print("total %s", len(self.links))
 		self.ft_login()
 		self.ft_conetnet()
-
 
 	"""content page parser"""
 	def ft_conetnet(self):
@@ -494,6 +485,30 @@ class collect(object):
 				i = i+1
 				pass
 
+	def ft_csv(self):
+		self.stock2Json()
+
+		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
+		with open(self.fnlist) as cf:
+			rows = csv.reader(cf)
+			for cols in rows:
+				# [ticker, time.text, header.text, url]
+				if len(cols) < 1:
+					continue
+				ticker = cols[0]
+				ymd = str(parse(cols[1]).date())
+				title = cols[2]
+				try:
+					tid = re.search('\/([\w-]+)$', cols[3]).group(1)
+				except:
+					continue;
+
+				fn = "./data/ft/"+ ymd + '_' + tid
+
+				if self.ticker_info.get(ticker) is None or  os.path.exists(fn) != True:
+					continue
+
+				self.toNewsCsv(fn, 'ft', ticker, ymd)
 
 
 	# https://www.djreprints.com/menu/other-services/
@@ -503,10 +518,9 @@ class collect(object):
 	# OR https://www.wsj.com/market-data/quotes/TSLA
 	#
 	# https://www.wsj.com/news/archive/2020/08/18
-	"""docstring for collect"""
-	def wsj_arix(self):
-		if os.path.exists(self.fnlist):
-			return
+
+
+	def wsj(self):
 
 		baseUrl = 'https://www.wsj.com/news/archive/'
 		date = self.collect_end
@@ -536,7 +550,16 @@ class collect(object):
 			nextpage = 0
 
 
+	def wsj_arix(self):
+		self.wsj_login()
+		newslist_fetch(self.wsj_content)
+
+
 	def wsj_login(self):
+		if self.account is None:
+			print("need account")
+			exit()
+
 		if not self.driver:
 			self.setUp()
 		driver = self.driver
@@ -593,9 +616,7 @@ class collect(object):
 		return [newslinks, pages]
 
 
-
 	def wsj_content(self, url):
-
 
 
 		soup = BeautifulSoup(r.text, 'html.parser')
@@ -611,7 +632,7 @@ class collect(object):
 
 
 	"""docstring for collect"""
-	def usat_search(self):
+	def usat(self):
 		fn = "./url.temp"
 		if os.path.exists(fn) == True:
 			with open(fn, 'r', newline='', encoding='utf-8') as f:
@@ -672,8 +693,9 @@ class collect(object):
 			os.reomve(fn)
 
 	""" usa today : fetch from archive, collect all financial news """
-	def ust_sitemap(self):
+	def usat_arix(self):
 		if os.path.exists(self.fnlist):
+			self.newslist_fetch(self.ust_content)
 			return
 
 		baseUrl = 'https://www.usatoday.com/sitemap/'
