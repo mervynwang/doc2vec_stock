@@ -293,8 +293,8 @@ class collect(object):
 		with open(self.fnlist , "r") as fo:
 			for url in fo:
 				url = url.rstrip()
-				content_parser(url, False)
-				self.wait_between(True)
+				wait = content_parser(url, False)
+				self.wait_between(wait)
 
 
 	""" ft login , search, & fetch content """
@@ -587,6 +587,8 @@ class collect(object):
 
 
 	def wsj_arix(self):
+		self.source = 'wsj'
+		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
 		self.wsj_login()
 		self.newslist_fetch(self.wsj_content)
 
@@ -671,13 +673,13 @@ class collect(object):
 		try:
 			tid = re.search('-(\d+)$', link).group(1)
 			if os.path.exists('./data/wsj/'+tid):
-				return
+				return False
 		except:
 			self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], link))
 			# log url
 			with open("./tmp/wsj_to", 'a+') as f:
 				f.write("%s \n" % link)
-			return
+			return False
 
 		try:
 			self.driver.get(link)
@@ -693,6 +695,7 @@ class collect(object):
 			ts = ts.text.replace('Updated', '')
 			dt = parse(ts).date()
 
+			title = titleDoms.text
 			contentDoms = soup.select("article div.article-content p")
 			ct = ''
 			for p in contentDoms:
@@ -700,15 +703,16 @@ class collect(object):
 					continue;
 				ct = ct + " \n " + p.text
 
+			fn = './data/wsj/' + tid
 			ticker = self.find_tag(ct)
 			if ticker != False:
-				self.toNewsCsv(fn, self.source, ticker, date)
+				self.toNewsCsv(fn, self.source, title, ticker, str(dt))
 
-			with open("./data/wsj/" + tid  , "w+") as fo:
+			with open(fn , "w+") as fo:
 				fo.write(ct)
 
 		except:
-			self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], link) )
+			self.log("Error %s : %s" % (sys.exc_info()[0], link) )
 
 			fn = "./tmp/wsj_" + tid + ".html"
 			self.log("new html type : %s on %s" % (link, fn))
@@ -724,6 +728,7 @@ class collect(object):
 		finally:
 			pass
 
+		return True
 
 	def usat_csv(self):
 		self.stock2Json()
