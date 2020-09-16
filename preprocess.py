@@ -15,6 +15,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from wordcloud import WordCloud
 
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import MultinomialNB
+
 from sklearn.model_selection import train_test_split
 import sklearn
 
@@ -27,8 +29,9 @@ class preProcess(object):
 	path = ''
 	model = ''
 	tagged_data = []
-	tag = ''
+	tag = []
 	fnlist = []
+	tagname = ''
 	stopwords = None
 
 
@@ -47,7 +50,7 @@ class preProcess(object):
 			required=True,
 			help='model save to')
 
-		parser.add_argument('-a', '--tag', default='7d', choices=['7', '30'], type=str,
+		parser.add_argument('-a', '--tagname', default='7d', choices=['7', '30'], type=str,
 			help='7 | 30 ')
 
 		parser.add_argument('-u', '--useTitle', default=False, type=self.str2bool,
@@ -63,7 +66,7 @@ class preProcess(object):
 			help='stop words ')
 
 		parser.add_argument('processor',
-			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bayes', 'load', 'bar'],
+			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bayes', 'svm', 'load', 'bar'],
 			help='main function')
 
 		args = parser.parse_args(namespace=self)
@@ -78,8 +81,8 @@ class preProcess(object):
 
 		self.stopwords = set(nltk.corpus.stopwords.words('english'))
 
-		if not self.tag :
-			self.tag = '7'
+		if not self.tagname :
+			self.tagname = '7'
 
 		if self.stop is None :
 			self.stop = []
@@ -122,7 +125,7 @@ class preProcess(object):
 						if self.useTitle:
 							self.tagged_data.append(cols[3])
 
-						if self.tag == '7':
+						if self.tagname == '7':
 							self.tag.append(cols[10])
 						else:
 							self.tag.append(cols[11])  # 30dt
@@ -146,12 +149,12 @@ class preProcess(object):
 		df = frame[col]
 		fig = plt.figure(figsize=(20,10))
 
-		if self.tag == '7':
-			self.tag = '7dt'
+		if self.tagname == '7':
+			self.tagname = '7dt'
 		else:
-			self.tag = '30dt'
+			self.tagname = '30dt'
 
-		bar = df.groupby([self.tag, 'ticker']).title.size().unstack().rename(
+		bar = df.groupby([self.tagname, 'ticker']).title.size().unstack().rename(
 			index={
 				'e' : 'Equal',
 				'p' : 'Cautious Optimism',
@@ -160,7 +163,7 @@ class preProcess(object):
 				'nn': 'Pessimistic'
 			}).plot.bar()
 
-		if self.tag == '7':
+		if self.tagname == '7':
 			bar.set_xlabel('7 day predict')
 		else:
 			bar.set_xlabel('30 day predict')
@@ -190,6 +193,8 @@ class preProcess(object):
 			).generate(text)
 		cloud.to_file(self.model)
 
+	# https://colab.research.google.com/drive/14HcWVXEQ8OwUuNLcYWg0ZDT1RtpMVl7b#forceEdit=true&sandboxMode=true&scrollTo=8iElYoMOhSIy
+	# https://medium.com/@bedigunjit/simple-guide-to-text-classification-nlp-using-svm-and-naive-bayes-with-python-421db3a72d34
 	def bayes(self):
 		self.open_folder()
 
@@ -215,6 +220,30 @@ class preProcess(object):
 		print("bayes accuracy_score: %s " % asc)
 		# print("bayes recall_score: %s " % rsc)
 
+	def svm(self):
+		self.open_folder()
+
+		if self.useTitle:
+			self.prepare_bow_title()
+		else:
+			self.prepare_bow()
+
+		X = self.train_bow()
+
+		X_train, X_test, y_train, y_test = train_test_split(X, self.tag, test_size=0.3)
+
+		SVM = sklearn.svm.SVC(C=1.0, kernel='linear', degree=3, gamma='auto')
+		SVM.fit(X_train, y_train)
+		y_result = SVM.predict(X_test)
+
+		asc = sklearn.metrics.accuracy_score(y_test, y_result)
+		# rsc = sklearn.metrics.recall_score(y_test, y_result, average='samples')
+
+		# print("y_result : %s " % y_result)
+		# print("y_test : %s "% y_test)
+		print("SVM total is %s error number: %s " % (len(y_test), (y_test != y_result).sum()))
+		print("SVM accuracy_score: %s " % asc)
+		# print("bayes recall_score: %s " % rsc)
 
 	def bow(self):
 		self.open_folder()
@@ -229,7 +258,6 @@ class preProcess(object):
 
 		return self
 
-	# https://colab.research.google.com/drive/14HcWVXEQ8OwUuNLcYWg0ZDT1RtpMVl7b#forceEdit=true&sandboxMode=true&scrollTo=8iElYoMOhSIy
 	def prepare_bow(self):
 		for news_fn in self.fnlist:
 			with open(news_fn, 'r') as f:
@@ -255,7 +283,6 @@ class preProcess(object):
 		    pickle.dump(word_vectors, handle)
 
 		return word_vectors
-
 
 	def word2vec(self):
 		self.open_folder()
