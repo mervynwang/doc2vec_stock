@@ -234,19 +234,19 @@ class collect(object):
 
 	def tag(self, diff):
 		if diff <= 2  and diff >= -2:
-			return 'e'
+			return 'n' #e
 
 		if diff <= 10  and diff > 2:
-			return 'p'
+			return 'co' #p
 
 		if diff > 10  :
-			return 'pp'
+			return 'o'  #pp
 
 		if diff < -2  and diff >= -10:
-			return 'n'
+			return 'cp' # n
 
 		if diff < -10  :
-			return 'nn'
+			return 'p'  #nn
 
 
 	"""docstring for collect"""

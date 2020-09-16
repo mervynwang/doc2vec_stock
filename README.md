@@ -26,3 +26,11 @@ https://nlp.stanford.edu/pubs/sidaw12_simple_sentiment.pdf
 
 Bayes -> good at snippets
 svm -> full text
+
+
+https://towardsdatascience.com/implementing-multi-class-text-classification-with-doc2vec-df7c3812824d
+
+https://towardsdatascience.com/multi-class-text-classification-with-doc2vec-logistic-regression-9da9947b43f4
+
+
+https://towardsdatascience.com/using-word2vec-to-analyze-news-headlines-and-predict-article-success-cdeda5f14751
