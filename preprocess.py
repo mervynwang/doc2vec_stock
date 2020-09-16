@@ -66,9 +66,13 @@ class preProcess(object):
 
         self.stopwords = set(nltk.corpus.stopwords.words('english'))
 
+        if self.stop is None :
+            self.stop = []
+
         self.stop = self.stop + ['!',',','.','?','-s','-ly','</s>','s',
             '%', '$', "'", '`', '@', "''", 'us', 'year',
             'new', 'today', 'usa', 'say']
+
         for w in self.stop:
             self.stopwords.add(w)
 

@@ -45,10 +45,10 @@ class collect(object):
 
 	headless = False
 	driver = None
-	collect_start = datetime.datetime(2013, 1, 1)
-	collect_end = datetime.datetime(2020, 8, 1)
 	headers = {}
-	stockDict = {}
+
+	collect_start = datetime.datetime(2013, 1, 1)
+	collect_end = datetime.datetime(2020, 5, 30)
 	ticker_info = {
 				'google' : {
 					'keywords' : ['Alphabet Inc', 'Google LLC'],
@@ -74,6 +74,7 @@ class collect(object):
 
 	newsCsv = './data/news.csv'
 	links = []
+	csvheader = True
 
 
 
@@ -109,7 +110,7 @@ class collect(object):
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source',
-			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv'],
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv'],
 			help='data source'
 			)
 
@@ -202,10 +203,15 @@ class collect(object):
 			except:
 				self.log("Error %s : %s" % (sys.exc_info()[0], fn) )
 
+	def find_tag(self, content):
+		for ticker in self.ticker_info:
+			for kw in self.ticker_info[ticker]['keywords']:
+				if content.find(kw) != -1 :
+					return ticker
+		return False
 
 	"""docstring for collect"""
 	def dayMove(self, ticker, dd, n):
-		end = datetime.datetime(2020, 5, 30)
 
 		if n > 0 :
 			dd = dd + datetime.timedelta(days=n)
@@ -221,44 +227,67 @@ class collect(object):
 			else:
 				dd = dd + dd1
 
-			if dd >= end :
+			if dd >= self.collect_end :
 				break
 		return False
 
+
+	def tag(self, diff):
+		if diff <= 2  and diff >= -2:
+			return 'e'
+
+		if diff <= 10  and diff > 2:
+			return 'p'
+
+		if diff > 10  :
+			return 'pp'
+
+		if diff < -2  and diff >= -10:
+			return 'n'
+
+		if diff < -10  :
+			return 'nn'
+
+
 	"""docstring for collect"""
-	def toNewsCsv(self, fn, source, ticker, ds):
-		start = datetime.datetime(2013, 1, 1)
+	def toNewsCsv(self, fn, source, title, ticker, ds):
 		date = datetime.datetime.strptime(ds, '%Y-%m-%d')
 
 		# usa today arix from 2012-10, fetch data from 20130101 - 20200530
-		if date < start:
-			return
+		if date < self.collect_start:
+			return False
 
 		st0 = self.dayMove(ticker, date, 0)
 		st7 = self.dayMove(ticker, date, 7)
 		st30 = self.dayMove(ticker, date, 30)
 
 		if not st0 or not st7 or not st30:
-			return
+			return False
 
 		d7 = math.floor(((st0['a'] - st7['a'])/st0['a'] )* 100)
 		d30 = math.floor(((st0['a'] - st30['a'])/st0['a'] )* 100)
 
 		with open(self.newsCsv, 'a', newline='') as csvfile:
-			fieldnames = [ 'source', 'date', 'ticker', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d']
+			fieldnames = [ 'source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-			# writer.writeheader()
+			if self.csvheader :
+				writer.writeheader()
 			writer.writerow({
 				'source' : source,
 				'date' : ds,
 				'ticker' : ticker,
+				'title' : title,
 				'content_fp' : fn,
 				'0dr' : st0,
 				'7dr' : st7,
 				'30dr' : st30,
 				'7d' : d7,
 				'30d' : d30,
+				'7dt' : self.tag(d7),
+				'30dt' : self.tag(d30),
 				})
+			return True
+
 
 	def newslist_fetch(self, content_parser):
 		i = 1
@@ -343,7 +372,6 @@ class collect(object):
 
 	""" serch """
 	def ft_search(self, ticker, keyword, sortBy = 1):
-		print(keyword)
 
 		self.driver.get('https://www.ft.com')
 		WebDriverWait(self.driver, 40, 1).until(EC.presence_of_element_located((By.ID, "o-header-search-primary")))
@@ -400,7 +428,6 @@ class collect(object):
 				nextPage.click()
 
 			except:
-				print(nextPage)
 				nextPage = None
 				print("End, Next kw, total %s", i)
 
@@ -493,6 +520,7 @@ class collect(object):
 
 	def ft_csv(self):
 		self.stock2Json()
+		self.links = []
 
 		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
 		with open(self.fnlist) as cf:
@@ -509,12 +537,20 @@ class collect(object):
 				except:
 					continue;
 
+				if tid in self.links :
+					continue;
+
+				self.links.append(tid)
 				fn = "./data/ft/"+ ymd + '_' + tid
 
 				if self.ticker_info.get(ticker) is None or  os.path.exists(fn) != True:
 					continue
 
-				self.toNewsCsv(fn, 'ft', ticker, ymd)
+				if not self.toNewsCsv(fn, 'ft', title, ticker, ymd):
+					continue
+
+				self.csvheader = False
+
 
 
 	# https://www.djreprints.com/menu/other-services/
@@ -632,9 +668,31 @@ class collect(object):
 		artistDoms = soup.select("article div.author-container")
 
 		contentDom = soup.select("article div.wsj-snippet-body")
+
+		# ticker = self.find_tag(content)
+		# if ticker != False:
+		# 	self.toNewsCsv(fn, self.source, ticker, date)
 		pass
 
 
+	def usat_csv(self):
+		self.stock2Json()
+		self.source = 'usat'
+		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
+
+		folder = './data/usat'
+		fnlist = []
+		for fn in os.listdir(folder):
+			with open(folder + '/' + fn, 'r', encoding='utf-8') as ff :
+				content = ff.read()
+				ticker = self.find_tag(content)
+				lines = content.splitlines(True)
+				title = lines[0].strip("\n ")
+				date = fn[0:10]
+				if ticker != False:
+					# print('find fn %s title %s, ymd %s, ticker %s' % (folder + '/' + fn, title, date , ticker))
+					self.toNewsCsv(folder + '/' + fn, self.source, title, ticker, date)
+					self.csvheader = False
 
 
 	"""docstring for collect"""
@@ -775,11 +833,18 @@ class collect(object):
 
 		try:
 			date, artist, content = self.usat_t1(soup) or self.usat_t2(soup)
+			fn = "./data/usat/"+ date + '_' + tid
 			if date:
-				with open("./data/usat/"+ date + '_' + tid  , "a") as fo:
+
+				with open(fn  , "a") as fo:
 					fo.write(content)
 			else:
 				self.log("Error date is False : %s" % (link) )
+
+
+			ticker = self.find_tag(content)
+			if ticker != False:
+				self.toNewsCsv(fn, self.source, ticker, date)
 
 		except:
 			self.log("Error %s : %s" % (sys.exc_info()[0], link) )
