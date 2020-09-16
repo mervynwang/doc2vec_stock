@@ -5,22 +5,18 @@ import sys, json, os, pickle, csv
 import argparse, gensim, nltk
 import numpy as np
 
-#from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-# from nltk.tokenize import word_tokenize
-
-
-# import spacy
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
+
+from sklearn.feature_extraction.text import CountVectorizer  # bow
 from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
+# svm bayes
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.naive_bayes import MultinomialNB
-
 from sklearn.model_selection import train_test_split
 import sklearn
 
-import matplotlib.pyplot as plt
+
 
 
 class preProcess(object):
@@ -56,6 +52,7 @@ class preProcess(object):
 		parser.add_argument('-u', '--useTitle', default=False, type=self.str2bool,
 			help='use title to train ')
 
+		parser.add_argument('-i', '--title', type=str, help='wordcloud title')
 		parser.add_argument('-e', '--height', default=400, type=int,
 			help='wordcloud image height')
 
@@ -169,8 +166,8 @@ class preProcess(object):
 			bar.set_xlabel('30 day predict')
 
 		bar.tick_params(axis='x', rotation=10, labelbottom=30)
-
-		# bar.set_title('title')
+		if self.title:
+			bar.set_title(self.title)
 
 		plt.savefig(self.model)
 		# plt.show()

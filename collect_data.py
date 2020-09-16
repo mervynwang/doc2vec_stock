@@ -95,7 +95,7 @@ class collect(object):
 	"""docstring for collect"""
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='input stock name, apiKey(tiingo & google search)')
-		parser.add_argument('-l', '--headless', type=self.str2bool, default=False, help='headless mode (1|0)')
+		parser.add_argument('-l', '--headless', type=self.str2bool, default=True, help='headless mode (1|0)')
 		# parser.add_argument('-n', '--nu', type=int, default=0, help='news list start from nu')
 
 		parser.add_argument('-t', '--tiingo', type=str, help='tiingo api key')
@@ -110,7 +110,7 @@ class collect(object):
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source',
-			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv'],
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix'],
 			help='data source'
 			)
 
@@ -290,15 +290,9 @@ class collect(object):
 
 
 	def newslist_fetch(self, content_parser):
-		i = 1
 		with open(self.fnlist , "r") as fo:
 			for url in fo:
-				i = i + 1
-				if self.nu >= i:
-					continue
-
 				url = url.rstrip()
-				self.log(str(i) + "  " + url);
 				content_parser(url, False)
 				self.wait_between(True)
 
@@ -319,7 +313,7 @@ class collect(object):
 				with open("./tmp/ft_to_"+ticker , 'a+') as f:
 					f.write("%s\n" % url)
 
-		self.ft_conetnet()
+		self.ft_content()
 		# done
 
 	""" login """
@@ -450,10 +444,10 @@ class collect(object):
 
 		print("total %s", len(self.links))
 		self.ft_login()
-		self.ft_conetnet()
+		self.ft_content()
 
 	"""content page parser"""
-	def ft_conetnet(self):
+	def ft_content(self):
 		baseUrl = 'https://www.ft.com'
 
 		i = 0
@@ -594,8 +588,7 @@ class collect(object):
 
 	def wsj_arix(self):
 		self.wsj_login()
-		newslist_fetch(self.wsj_content)
-
+		self.newslist_fetch(self.wsj_content)
 
 	def wsj_login(self):
 		if self.account is None:
@@ -604,22 +597,38 @@ class collect(object):
 
 		if not self.driver:
 			self.setUp()
-		driver = self.driver
-		loginUrl = 'https://sso.accounts.dowjones.com/login?state=g6Fo2SBiYlhrLUZCUmY1b0xiVTBsZkF0UTkyMEZEX3ozOXZpNKN0aWTZIGJBaEN4R2dDcGQzY3hIYktyZFJGazRjZlBmZVZ2czllo2NpZNkgNWhzc0VBZE15MG1KVElDbkpOdkM5VFhFdzNWYTdqZk8&client=5hssEAdMy0mJTICnJNvC9TXEw3Va7jfO&protocol=oauth2&scope=openid%20idp_id%20roles%20email%20given_name%20family_name%20djid%20djUsername%20djStatus%20trackid%20tags%20prts&response_type=code&redirect_uri=https%3A%2F%2Faccounts.wsj.com%2Fauth%2Fsso%2Flogin&nonce=2f4078c1-39fe-4c4a-9abe-a36a8399ad40&ui_locales=en-us-x-wsj-83-2&ns=prod%2Faccounts-wsj&savelogin=on#!/signin'
-		driver.get(loginUrl)
 
-		login = WebDriverWait(driver, 20).until(
+		loginUrl = 'https://www.wsj.com/'
+		self.driver.get(loginUrl)
+		login = WebDriverWait(self.driver, 20).until(
+			EC.presence_of_element_located((By.CSS_SELECTOR, "header a[href*=accounts]")) #sign-in
+		)
+		login.click()
+
+		login = WebDriverWait(self.driver, 60).until(
 		EC.presence_of_element_located((By.XPATH ,
 			'//*[@id="username"]')) #sign-in
 		)
-		self.moveWait(login)
 		self.key_in(login, self.account)
 
-		pw = EC.presence_of_element_located((By.ID ,'//*[@id="password"]'))
+		pw = self.driver.find_element_by_xpath('//*[@id="password"]')
 		self.key_in(pw, self.password)
-		self.moveWait(pw)
 
-		driver.find_element_by_xpath('//*[@id="basic-login"]/div[1]/form/div/div[6]/div[1]/button').click()
+		self.driver.find_element_by_xpath('//*[@id="basic-login"]/div[1]/form/div/div[6]/div[1]/button').click()
+
+		print("google recaptcha wait... ...")
+		wait = True
+		while wait:
+			try:
+				#  do check recaptcha completed
+				WebDriverWait(self.driver, 120, 1).until(
+					EC.presence_of_element_located((By.XPATH, '//*[@id="root"]/div/div/div/div[1]/header/nav'))
+					)
+				wait = False
+			except NoSuchElementException:
+				wait = True
+				pass
+		print("go search... ")
 
 
 	""" wsj_arix_parser """
@@ -658,21 +667,62 @@ class collect(object):
 		return [newslinks, pages]
 
 
-	def wsj_content(self, url):
+	def wsj_content(self, link, csv):
+		try:
+			tid = re.search('-(\d+)$', link).group(1)
+			if os.path.exists('./data/wsj/'+tid):
+				return
+		except:
+			self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], link))
+			# log url
+			with open("./tmp/wsj_to", 'a+') as f:
+				f.write("%s \n" % link)
+			return
 
+		try:
+			self.driver.get(link)
+			WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, '//*[@id="main"]'))
+				)
 
-		soup = BeautifulSoup(r.text, 'html.parser')
+			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
-		titleDoms = soup.select("article h1.wsj-article-headline")
+			titleDoms = soup.find("h1", class_="wsj-article-headline")
+			# artistDoms = soup.select("article div.author-container")
+			ts = soup.find("time", class_="timestamp")
+			ts = ts.text.replace('Updated', '')
+			dt = parse(ts).date()
 
-		artistDoms = soup.select("article div.author-container")
+			contentDoms = soup.select("article div.article-content p")
+			ct = ''
+			for p in contentDoms:
+				if p.text.find('Copyright') != -1 or p.text.find('@wsj.com') != -1 :
+					continue;
+				ct = ct + " \n " + p.text
 
-		contentDom = soup.select("article div.wsj-snippet-body")
+			ticker = self.find_tag(ct)
+			if ticker != False:
+				self.toNewsCsv(fn, self.source, ticker, date)
 
-		# ticker = self.find_tag(content)
-		# if ticker != False:
-		# 	self.toNewsCsv(fn, self.source, ticker, date)
-		pass
+			with open("./data/wsj/" + tid  , "w+") as fo:
+				fo.write(ct)
+
+		except:
+			self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], link) )
+
+			fn = "./tmp/wsj_" + tid + ".html"
+			self.log("new html type : %s on %s" % (link, fn))
+
+			# log url
+			with open("./tmp/wsj_to", 'a+') as f:
+				f.write("%s \n" % link)
+
+			# write html content
+			with open(fn, 'w') as f:
+				f.write(self.driver.page_source)
+
+		finally:
+			pass
 
 
 	def usat_csv(self):
