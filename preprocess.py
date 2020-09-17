@@ -139,7 +139,7 @@ class preProcess(object):
 			self.tagname = '30dt'
 
 		df['month_year'] = pd.to_datetime(df['date']).dt.to_period('M')
-		print(df.head())
+		# print(df.head())
 
 		bar = df.groupby(['month_year', self.tagname]).size().unstack().rename(columns={
 				'n' : 'Neutral',
@@ -147,8 +147,7 @@ class preProcess(object):
 				'co': 'Optimism',
 				'cp' : 'Cautious Pessimistic',
 				'p': 'Pessimistic'
-			})
-		# .reindex(['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
+			}).reindex(columns=['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
 		bar.to_csv(self.model)
 		char = bar.plot.bar()
@@ -162,8 +161,7 @@ class preProcess(object):
 		if self.title:
 			char.set_title(self.title)
 
-
-		plt.savefig(self.model)
+		# plt.savefig(self.model + '.png')
 		# plt.show()
 
 
