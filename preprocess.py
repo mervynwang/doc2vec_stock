@@ -136,8 +136,8 @@ class preProcess(object):
 		li = []
 
 		for csvfn in self.path:
-		    df = pd.read_csv(csvfn, index_col=None, header=0)
-		    li.append(df)
+			df = pd.read_csv(csvfn, index_col=None, header=0)
+			li.append(df)
 
 		frame = pd.concat(li, axis=0, ignore_index=True)
 		li = None
@@ -153,11 +153,11 @@ class preProcess(object):
 
 		bar = df.groupby([self.tagname, 'ticker']).title.size().unstack().rename(
 			index={
-				'e' : 'Equal',
-				'p' : 'Cautious Optimism',
-				'pp': 'Optimism',
-				'n' : 'Cautious Pessimistic',
-				'nn': 'Pessimistic'
+				'n' : 'Neutral',
+				'o' : 'Cautious Optimism',
+				'co': 'Optimism',
+				'cp' : 'Cautious Pessimistic',
+				'p': 'Pessimistic'
 			}).plot.bar()
 
 		if self.tagname == '7':
@@ -178,6 +178,8 @@ class preProcess(object):
 		for fn in self.fnlist:
 			with open(fn, 'r', encoding='utf-8') as news:
 				words = nltk.tokenize.word_tokenize(news.read())
+				# Remove non-alphabetic tokens, such as punctuation
+				words = [word for word in words if word.isalpha()]
 				filtered_words = [word for word in words if word not in self.stopwords]
 				text = text + ' '.join(filtered_words)
 				words = filtered_words = None
@@ -249,6 +251,8 @@ class preProcess(object):
 	def prepare_bow_title(self):
 		for i, title in enumerate(self.tagged_data):
 			words = nltk.tokenize.word_tokenize(title.lower())
+			# Remove non-alphabetic tokens, such as punctuation
+			words = [word for word in words if word.isalpha()]
 			filtered_words = [word for word in words if word not in self.stopwords]
 			self.tagged_data[i] = ' '.join(filtered_words)
 			words = filtered_words = None
@@ -260,6 +264,8 @@ class preProcess(object):
 			with open(news_fn, 'r') as f:
 				content = f.read()
 				words = nltk.tokenize.word_tokenize(content.lower())
+				# Remove non-alphabetic tokens, such as punctuation
+				words = [word for word in words if word.isalpha()]
 				filtered_words = [word for word in words if word not in self.stopwords]
 				line = ' '.join(filtered_words)
 				self.tagged_data.append(line)
@@ -270,14 +276,14 @@ class preProcess(object):
 	def train_bow(self):
 		vectorizer = CountVectorizer() # 初始化這個詞袋vectorizer
 		word_vectors = vectorizer.fit_transform(self.tagged_data)
-		# print('Features:', vectorizer.get_feature_names())
+		print('Features:', vectorizer.get_feature_names())
 		# print('Values: \n', word_vectors.toarray())
 
 		with open(self.model + '_bow_tag.pkl', 'wb') as handle:
-		    pickle.dump(self.tag, handle)
+			pickle.dump(self.tag, handle)
 
 		with open(self.model + '_bow.pkl', 'wb') as handle:
-		    pickle.dump(word_vectors, handle)
+			pickle.dump(word_vectors, handle)
 
 		return word_vectors
 
@@ -291,6 +297,8 @@ class preProcess(object):
 			with open(news_fn, 'r') as f:
 				for i, line in enumerate(f.read().splitlines(True)):
 					words = nltk.tokenize.word_tokenize(line.strip().lower())
+					# Remove non-alphabetic tokens, such as punctuation
+					words = [word for word in words if word.isalpha()]
 					filtered_words = [word for word in words if word not in self.stopwords]
 					self.tagged_data.append(filtered_words)
 
