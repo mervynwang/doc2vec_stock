@@ -675,7 +675,7 @@ class collect(object):
 			if os.path.exists('./data/wsj/'+tid):
 				return False
 		except:
-			self.log("Error %s, %s : %s" % (i, sys.exc_info()[0], link))
+			self.log("Error %s, %s : %s" % (sys.exc_info()[0], link))
 			# log url
 			with open("./tmp/wsj_to", 'a+') as f:
 				f.write("%s \n" % link)
