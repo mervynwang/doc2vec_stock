@@ -34,3 +34,11 @@ https://towardsdatascience.com/multi-class-text-classification-with-doc2vec-logi
 
 
 https://towardsdatascience.com/using-word2vec-to-analyze-news-headlines-and-predict-article-success-cdeda5f14751
+
+refer:
+https://arxiv.org/pdf/1408.5882v2.pdf
+
+
+
+
+py train.py bayes -t ./result/bow_ft_tag.pkl -b ./result/bow_ft_title.pkl -e 'ft_title' >> ./result/train.log

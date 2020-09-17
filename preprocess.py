@@ -137,6 +137,7 @@ class preProcess(object):
 
 		for csvfn in self.path:
 			df = pd.read_csv(csvfn, index_col=None, header=0)
+			df = df.iloc[1:]
 			li.append(df)
 
 		frame = pd.concat(li, axis=0, ignore_index=True)
@@ -145,29 +146,33 @@ class preProcess(object):
 		col = ['source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
 		df = frame[col]
 		fig = plt.figure(figsize=(20,10))
+		# print(df.head())
 
 		if self.tagname == '7':
 			self.tagname = '7dt'
 		else:
 			self.tagname = '30dt'
 
-		bar = df.groupby([self.tagname, 'ticker']).title.size().unstack().rename(
+		bar = df.groupby([self.tagname, 'ticker']).size().unstack().rename(
 			index={
 				'n' : 'Neutral',
 				'o' : 'Cautious Optimism',
 				'co': 'Optimism',
 				'cp' : 'Cautious Pessimistic',
 				'p': 'Pessimistic'
-			}).plot.bar()
+			}).reindex(['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
+
+		print(bar)
+		char = bar.plot.bar()
 
 		if self.tagname == '7':
-			bar.set_xlabel('7 day predict')
+			char.set_xlabel('7 day predict')
 		else:
-			bar.set_xlabel('30 day predict')
+			char.set_xlabel('30 day predict')
 
-		bar.tick_params(axis='x', rotation=10, labelbottom=30)
+		char.tick_params(axis='x', rotation=10, labelbottom=30)
 		if self.title:
-			bar.set_title(self.title)
+			char.set_title(self.title)
 
 		plt.savefig(self.model)
 		# plt.show()
@@ -177,7 +182,7 @@ class preProcess(object):
 		text = ''
 		for fn in self.fnlist:
 			with open(fn, 'r', encoding='utf-8') as news:
-				words = nltk.tokenize.word_tokenize(news.read())
+				words = nltk.tokenize.word_tokenize(news.read().lower())
 				# Remove non-alphabetic tokens, such as punctuation
 				words = [word for word in words if word.isalpha()]
 				filtered_words = [word for word in words if word not in self.stopwords]
@@ -246,7 +251,12 @@ class preProcess(object):
 
 	def bow(self):
 		self.open_folder()
-		self.prepare_bow().train_bow()
+		if self.useTitle:
+			self.prepare_bow_title()
+		else:
+			self.prepare_bow()
+
+		self.train_bow()
 
 	def prepare_bow_title(self):
 		for i, title in enumerate(self.tagged_data):
@@ -276,13 +286,13 @@ class preProcess(object):
 	def train_bow(self):
 		vectorizer = CountVectorizer() # 初始化這個詞袋vectorizer
 		word_vectors = vectorizer.fit_transform(self.tagged_data)
-		print('Features:', vectorizer.get_feature_names())
+		# print('Features:', vectorizer.get_feature_names())
 		# print('Values: \n', word_vectors.toarray())
 
-		with open(self.model + '_bow_tag.pkl', 'wb') as handle:
+		with open(self.model + '_tag.pkl', 'wb') as handle:
 			pickle.dump(self.tag, handle)
 
-		with open(self.model + '_bow.pkl', 'wb') as handle:
+		with open(self.model + '.pkl', 'wb') as handle:
 			pickle.dump(word_vectors, handle)
 
 		return word_vectors

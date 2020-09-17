@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-
 import sys, os, re, csv, hashlib, datetime, glob, json, math
+import traceback
 
 # from datetime import datetime
 from time import sleep, time
@@ -12,7 +12,6 @@ import requests
 import argparse
 
 from fake_useragent import UserAgent
-from googlesearch import search
 from dateutil.parser import parse
 
 from selenium import webdriver
@@ -26,20 +25,11 @@ from selenium.webdriver.common.keys import Keys
 
 from bs4 import BeautifulSoup
 
-
-
-# ua = UserAgent()
-#
-# ua.firefox
-# ua.chrome
-
 # Randomization Related
 MIN_RAND        = 0.64
 MAX_RAND        = 1.27
 LONG_MIN_RAND   = 4.78
 LONG_MAX_RAND = 10.1
-
-
 
 class collect(object):
 
@@ -51,17 +41,17 @@ class collect(object):
 	collect_end = datetime.datetime(2020, 5, 30)
 	ticker_info = {
 				'google' : {
-					'keywords' : ['Alphabet Inc', 'Google LLC'],
+					'keywords' : ['Alphabet Inc', 'Google LLC', 'google'],
 					'name' : 'GOOGL',
 					'stock':{}
 				},
 				'biogen' : {
-					'keywords' : ['Biogen Idec Inc'],
+					'keywords' : ['Biogen Idec Inc', 'biogen'],
 					'name' : 'BIIB',
 					'stock':{}
 				},
 				'tesla' : {
-					'keywords' : ['Tesla Inc', 'elon musk', 'TSLA'],
+					'keywords' : ['Tesla Inc', 'elon musk', 'TSLA', 'tesla'],
 					'name' : 'TSLA',
 					'stock':{}
 				},
@@ -110,7 +100,7 @@ class collect(object):
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source',
-			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix'],
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix', 'wsj_f'],
 			help='data source'
 			)
 
@@ -134,7 +124,10 @@ class collect(object):
 
 	"""docstring for collect"""
 	def run(self):
-		getattr(self, self.source)()
+		if self.source == 'wsj_f':
+			self.wsj_content(self.file, False)
+		else:
+			getattr(self, self.source)()
 
 
 	def tii(self):
@@ -206,7 +199,7 @@ class collect(object):
 	def find_tag(self, content):
 		for ticker in self.ticker_info:
 			for kw in self.ticker_info[ticker]['keywords']:
-				if content.find(kw) != -1 :
+				if content.lower().find(kw.lower()) != -1 :
 					return ticker
 		return False
 
@@ -216,6 +209,7 @@ class collect(object):
 		if n > 0 :
 			dd = dd + datetime.timedelta(days=n)
 		dd1 = datetime.timedelta(days=1)
+
 		while True:
 			ds = dd.isoformat()[0:10]
 			if ds in self.ticker_info[ticker]['stock']:
@@ -227,7 +221,7 @@ class collect(object):
 			else:
 				dd = dd + dd1
 
-			if dd >= self.collect_end :
+			if dd >= self.collect_end or dd < self.collect_start:
 				break
 		return False
 
@@ -256,6 +250,7 @@ class collect(object):
 		# usa today arix from 2012-10, fetch data from 20130101 - 20200530
 		if date < self.collect_start:
 			return False
+
 
 		st0 = self.dayMove(ticker, date, 0)
 		st7 = self.dayMove(ticker, date, 7)
@@ -293,8 +288,11 @@ class collect(object):
 		with open(self.fnlist , "r") as fo:
 			for url in fo:
 				url = url.rstrip()
+				if not url:
+					continue
 				wait = content_parser(url, False)
-				self.wait_between(wait)
+				if wait :
+					self.wait_between(wait)
 
 
 	""" ft login , search, & fetch content """
@@ -668,32 +666,46 @@ class collect(object):
 
 		return [newslinks, pages]
 
-
 	def wsj_content(self, link, csv):
+		print(link)
+
 		try:
-			tid = re.search('-(\d+)$', link).group(1)
-			if os.path.exists('./data/wsj/'+tid):
+			tid = re.search('[-_](\d+)(\.html)?$', link).group(1)
+			if os.path.exists('./data/wsj/'+tid) or (not self.file and os.path.exists('./tmp/wsj_'+tid+'.html')):
 				return False
 		except:
-			self.log("Error %s, %s : %s" % (sys.exc_info()[0], link))
+			self.log("Error reg : %s : %s" % (sys.exc_info()[0], link))
 			# log url
-			with open("./tmp/wsj_to", 'a+') as f:
-				f.write("%s \n" % link)
-			return False
+			if not self.file :
+				with open("./tmp/wsj_to", 'a+') as f:
+					f.write("%s \n" % link)
+				return False
 
 		try:
-			self.driver.get(link)
-			WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, '//*[@id="main"]'))
-				)
+			if self.file :
+				link = os.path.realpath(link)
+				print(link)
 
-			soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+				soup = BeautifulSoup(open(link, encoding='utf8'), 'html.parser')
+			else:
+				print(link)
+
+				self.driver.get(link)
+				WebDriverWait(self.driver, 10).until(
+					EC.presence_of_element_located((By.XPATH, '//*[@id="main"]'))
+					)
+
+				soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
 			titleDoms = soup.find("h1", class_="wsj-article-headline")
+			if not titleDoms:
+				titleDoms = soup.find("h1", class_="bigTop__hed")
+
 			# artistDoms = soup.select("article div.author-container")
 			ts = soup.find("time", class_="timestamp")
-			ts = ts.text.replace('Updated', '')
-			dt = parse(ts).date()
+			#  May 6, 2018 8:34 pm
+			ymd = re.search('(\w+\.? \d+,? \d{4})', ts.text).group(1)
+			dt = parse(ymd).date()
 
 			title = titleDoms.text
 			contentDoms = soup.select("article div.article-content p")
@@ -711,24 +723,30 @@ class collect(object):
 			with open(fn , "w+") as fo:
 				fo.write(ct)
 
-		except:
-			self.log("Error %s : %s" % (sys.exc_info()[0], link) )
+			if self.file :
+				tmpfn = "./tmp/wsj_" + tid + ".html"
+				os.remove(tmpfn)
+
+		except Exception as e :
+			self.showError(e)
 
 			fn = "./tmp/wsj_" + tid + ".html"
 			self.log("new html type : %s on %s" % (link, fn))
 
-			# log url
-			with open("./tmp/wsj_to", 'a+') as f:
-				f.write("%s \n" % link)
+			if not self.file :
+				# log url
+				with open("./tmp/wsj_to", 'a+') as f:
+					f.write("%s \n" % link)
 
-			# write html content
-			with open(fn, 'w') as f:
-				f.write(self.driver.page_source)
+				# write html content
+				with open(fn, 'w') as f:
+					f.write(self.driver.page_source)
 
 		finally:
 			pass
 
 		return True
+
 
 	def usat_csv(self):
 		self.stock2Json()
@@ -748,7 +766,6 @@ class collect(object):
 					# print('find fn %s title %s, ymd %s, ticker %s' % (folder + '/' + fn, title, date , ticker))
 					self.toNewsCsv(folder + '/' + fn, self.source, title, ticker, date)
 					self.csvheader = False
-
 
 	"""docstring for collect"""
 	def usat(self):
@@ -860,7 +877,6 @@ class collect(object):
 				nextlink.append(nextPage['href'])
 		return [newslinks, nextlink]
 
-
 	"""docstring for collect"""
 	def ust_content(self, link, csv):
 
@@ -879,6 +895,7 @@ class collect(object):
 				text = r.text
 			except:
 				self.log("Error %s : %s" % (sys.exc_info()[0], link) )
+				return False
 
 		else:
 			text = open(link)
@@ -912,9 +929,11 @@ class collect(object):
 
 				with open(fn, 'a') as f:
 					f.write(text)
+			return False
 		finally:
 			pass
 
+		return True
 
 	"""type 1"""
 	def usat_t1(self, soup):
@@ -956,29 +975,6 @@ class collect(object):
 
 		return str(dt), artist, content
 
-
-
-	"""docstring for collect"""
-	def goo_search(self, site):
-		if self.google is None :
-			return
-		try:
-			ff = self.site[site]
-		except KeyError:
-			print('site not exist ' + site)
-			return
-		q = self.ticker + ("" if site is None else "%20+site:%20" + self.site[site])
-		# q = urllib.parse.quote(q)
-		if self.debug:
-			print(q)
-		for link in search(q, lang = 'en', tld="com",
-				num = 10,     # Number of results per page
-				start = 0,    # First result to retrieve
-				stop = None,  # Last result to retrieve
-				pause = 2.0,  # Lapse between HTTP requests)
-			):
-			print(link)
-
 	"""argv bool"""
 	def str2bool(self, v):
 		if isinstance(v, bool):
@@ -994,18 +990,17 @@ class collect(object):
 	# Setup settings
 	def setUp(self):
 		profile = webdriver.FirefoxProfile()
-		# profile._install_extension("buster_captcha_solver_for_humans-0.7.2-an+fx.xpi", unpack=False)
 		# profile.set_preference("security.fileuri.strict_origin_policy", False)
-		# profile.set_preference("general.useragent.override", fua)
 		profile.update_preferences()
 		capabilities = webdriver.DesiredCapabilities.FIREFOX
 		capabilities['marionette'] = True
 
 		options = webdriver.FirefoxOptions()
-		# options.add_option('useAutomationExtension', False)
 		options.headless = self.headless
 
-		self.driver = webdriver.Firefox(options=options, capabilities=capabilities, firefox_profile=profile, executable_path='./geckodriver')
+		self.driver = webdriver.Firefox(options=options,
+			capabilities=capabilities,
+			firefox_profile=profile, executable_path='./geckodriver')
 		self.driver.set_window_size(1024, 1024)
 
 	# Simple logging method
@@ -1026,51 +1021,6 @@ class collect(object):
 			rand=uniform(MIN_RAND, MAX_RAND)
 		sleep(rand)
 
-	# Using B-spline for simulate humane like mouse movments
-	def human_like_mouse_move(self, action, start_element):
-		points = [[6, 2], [3, 2],[0, 0], [0, 2]];
-		points = np.array(points)
-		x = points[:,0]
-		y = points[:,1]
-
-		t = range(len(points))
-		ipl_t = np.linspace(0.0, len(points) - 1, 100)
-
-		x_tup = si.splrep(t, x, k=1)
-		y_tup = si.splrep(t, y, k=1)
-
-		x_list = list(x_tup)
-		xl = x.tolist()
-		x_list[1] = xl + [0.0, 0.0, 0.0, 0.0]
-
-		y_list = list(y_tup)
-		yl = y.tolist()
-		y_list[1] = yl + [0.0, 0.0, 0.0, 0.0]
-
-		x_i = si.splev(ipl_t, x_list)
-		y_i = si.splev(ipl_t, y_list)
-
-		startElement = start_element
-
-		action.move_to_element(startElement);
-		action.perform();
-
-		c = 5 # change it for more move
-		i = 0
-		for mouse_x, mouse_y in zip(x_i, y_i):
-			action.move_by_offset(mouse_x,mouse_y);
-			action.perform();
-			self.log("Move mouse to, %s ,%s" % (mouse_x, mouse_y))
-			i += 1
-			if i == c:
-				break;
-
-	def moveWait(self, ele):
-		driver = self.driver
-		action =  ActionChains(driver);
-		self.human_like_mouse_move(action, ele)
-		self.wait_between()
-
 	def key_in(self, controller, keys, min_delay=0.05, max_delay=0.25):
 		for key in keys:
 			controller.send_keys(key)
@@ -1081,6 +1031,16 @@ class collect(object):
 		if os.path.isdir(path) == False:
 			os.makedirs(path, exist_ok=True)
 
+	def showError(self, e):
+		error_class = e.__class__.__name__ #取得錯誤類型
+		detail = e.args[0] #取得詳細內容
+		cl, exc, tb = sys.exc_info() #取得Call Stack
+		lastCallStack = traceback.extract_tb(tb)[-1] #取得Call Stack的最後一筆資料
+		fileName = lastCallStack[0] #取得發生的檔案名稱
+		lineNum = lastCallStack[1] #取得發生的行號
+		funcName = lastCallStack[2] #取得發生的函數名稱
+		errMsg = "File \"{}\", line {}, in {}: [{}] {}".format(fileName, lineNum, funcName, error_class, detail)
+		print(errMsg)
 
 ###
 if __name__ == '__main__':
