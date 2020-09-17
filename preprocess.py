@@ -63,7 +63,7 @@ class preProcess(object):
 			help='stop words ')
 
 		parser.add_argument('processor',
-			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bayes', 'svm', 'load', 'bar'],
+			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bar', 'bar_ym'],
 			help='main function')
 
 		args = parser.parse_args(namespace=self)
@@ -91,22 +91,7 @@ class preProcess(object):
 		for w in self.stop:
 			self.stopwords.add(w)
 
-		return self
-
-
-	"""docstring for collect"""
-	def run(self):
 		getattr(self, self.processor)()
-
-		# if self.processor == "bow":
-		#     self.prepare_bow().train_bow()
-
-		if self.processor == "load":
-			vec = np.load(self.path)
-			print(vec)
-			# model = gensim.models.doc2vec.Doc2Vec.load(self.path)
-			# vector = model.docvecs['0000_40']
-			# print(type(vector))
 
 
 	def open_folder(self):
@@ -131,6 +116,57 @@ class preProcess(object):
 				# folder
 				for fn in os.listdir(folder):
 					self.fnlist.append(folder + '/' + fn)
+
+	def bar_ym(self):
+		li = []
+
+		for csvfn in self.path:
+			df = pd.read_csv(csvfn, index_col=None, header=0)
+			df = df.iloc[1:]
+			li.append(df)
+
+		frame = pd.concat(li, axis=0, ignore_index=True)
+		li = None
+
+		col = ['source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
+		df = frame[col]
+		fig = plt.figure(figsize=(10,4), dpi=100)
+
+
+		if self.tagname == '7':
+			self.tagname = '7dt'
+		else:
+			self.tagname = '30dt'
+
+		df['month_year'] = pd.to_datetime(df['date']).dt.to_period('M')
+		print(df.head())
+
+		bar = df.groupby(['month_year', self.tagname]).size().unstack().rename(columns={
+				'n' : 'Neutral',
+				'o' : 'Cautious Optimism',
+				'co': 'Optimism',
+				'cp' : 'Cautious Pessimistic',
+				'p': 'Pessimistic'
+			})
+		# .reindex(['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
+
+		bar.to_csv(self.model)
+		char = bar.plot.bar()
+
+		if self.tagname == '7':
+			char.set_xlabel('7 day predict')
+		else:
+			char.set_xlabel('30 day predict')
+
+		char.tick_params(axis='x', rotation=10, labelbottom=30)
+		if self.title:
+			char.set_title(self.title)
+
+
+		plt.savefig(self.model)
+		# plt.show()
+
+
 
 	def bar(self):
 		li = []
@@ -177,6 +213,7 @@ class preProcess(object):
 		plt.savefig(self.model)
 		# plt.show()
 
+
 	def wordcloud(self):
 		self.open_folder()
 		text = ''
@@ -197,57 +234,7 @@ class preProcess(object):
 			).generate(text)
 		cloud.to_file(self.model)
 
-	# https://colab.research.google.com/drive/14HcWVXEQ8OwUuNLcYWg0ZDT1RtpMVl7b#forceEdit=true&sandboxMode=true&scrollTo=8iElYoMOhSIy
-	# https://medium.com/@bedigunjit/simple-guide-to-text-classification-nlp-using-svm-and-naive-bayes-with-python-421db3a72d34
-	def bayes(self):
-		self.open_folder()
 
-		if self.useTitle:
-			self.prepare_bow_title()
-		else:
-			self.prepare_bow()
-
-		X = self.train_bow()
-
-		X_train, X_test, y_train, y_test = train_test_split(X, self.tag, test_size=0.3)
-
-		bayes = MultinomialNB()
-		bayes.fit(X_train, y_train)
-		y_result = bayes.predict(X_test)
-
-		asc = sklearn.metrics.accuracy_score(y_test, y_result)
-		# rsc = sklearn.metrics.recall_score(y_test, y_result, average='samples')
-
-		# print("y_result : %s " % y_result)
-		# print("y_test : %s "% y_test)
-		print("bayes total is %s error number: %s " % (len(y_test), (y_test != y_result).sum()))
-		print("bayes accuracy_score: %s " % asc)
-		# print("bayes recall_score: %s " % rsc)
-
-	def svm(self):
-		self.open_folder()
-
-		if self.useTitle:
-			self.prepare_bow_title()
-		else:
-			self.prepare_bow()
-
-		X = self.train_bow()
-
-		X_train, X_test, y_train, y_test = train_test_split(X, self.tag, test_size=0.3)
-
-		SVM = sklearn.svm.SVC(C=1.0, kernel='linear', degree=3, gamma='auto')
-		SVM.fit(X_train, y_train)
-		y_result = SVM.predict(X_test)
-
-		asc = sklearn.metrics.accuracy_score(y_test, y_result)
-		# rsc = sklearn.metrics.recall_score(y_test, y_result, average='samples')
-
-		# print("y_result : %s " % y_result)
-		# print("y_test : %s "% y_test)
-		print("SVM total is %s error number: %s " % (len(y_test), (y_test != y_result).sum()))
-		print("SVM accuracy_score: %s " % asc)
-		# print("bayes recall_score: %s " % rsc)
 
 	def bow(self):
 		self.open_folder()
@@ -383,5 +370,4 @@ class preProcess(object):
 
 if __name__ == '__main__':
 	model = preProcess()
-	model.setArgv().run()
-
+	model.setArgv()

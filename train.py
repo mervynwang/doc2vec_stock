@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys, json, os, pickle, csv, random
+import sys, json, os, time, pickle, csv, random
 
 
 import argparse, gensim
@@ -17,16 +17,18 @@ class train(object):
 	processor = ''
 	model = ''
 	tag = ''
-
+	start_ts = 0.0
 
 	def __init__(self):
-		pass
+		self.start_ts = time.time()
 
+	def __del__(self):
+		print('cost %.3f seconds' %(time.time() - self.start_ts))
 
 	def setArgv(self):
-		parser = argparse.ArgumentParser(description='preprocess BOW, word2vec, doc2vec')
+		parser = argparse.ArgumentParser(description='train model')
 
-
+		parser.add_argument('-s', '--save', type=str, help='model save to ')
 		parser.add_argument('-t', '--tag', type=str, help='tag pkl')
 		parser.add_argument('-b', '--bow', type=str, help='bow pkl')
 		parser.add_argument('-e', '--echo', type=str, help='print fisrt')
@@ -44,11 +46,6 @@ class train(object):
 			print("Run %s, %s :" % (self.processor, self.echo))
 			self.echo = None
 
-		return self
-
-
-	"""docstring for collect"""
-	def run(self):
 		getattr(self, self.processor)()
 
 	def rand(self):
@@ -69,7 +66,6 @@ class train(object):
 
 		# print("rand total is %s error number: %s " % (len(y_test), (y_test != y_result).sum()))
 		print("rand accuracy_score: %s " % asc)
-
 
 	def bayes(self):
 		with open(self.tag, 'rb') as tfn:
@@ -139,4 +135,4 @@ class train(object):
 
 if __name__ == '__main__':
 	model = train()
-	model.setArgv().run()
+	model.setArgv()
