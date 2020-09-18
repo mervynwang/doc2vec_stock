@@ -29,6 +29,11 @@ class preProcess(object):
 	fnlist = []
 	tagname = ''
 	stopwords = None
+	cols = [ 'source', 'date', 'ticker',
+				'title', 'content_fp', '0dr',
+				'1dr', '7dr', '30dr',
+				'1d', '7d', '30d',
+				'1dt', '7dt', '30dt']
 
 
 	def __init__(self):
@@ -46,10 +51,10 @@ class preProcess(object):
 			required=True,
 			help='model save to')
 
-		parser.add_argument('-a', '--tagname', default='7d', choices=['7', '30'], type=str,
-			help='7 | 30 ')
+		parser.add_argument('-a', '--tagname', default='7d', choices=['1', '7', '30'], type=str,
+			help='1 | 7 | 30 ')
 
-		parser.add_argument('-r', '--ticker', default='7d', choices=['google', 'tesla', 'amd', 'biogen'], type=str,
+		parser.add_argument('-r', '--ticker', default='google', choices=['google', 'tesla', 'amd', 'biogen'], type=str,
 			help='ticker')
 
 		parser.add_argument('-u', '--useTitle', default=False, type=self.str2bool,
@@ -109,10 +114,12 @@ class preProcess(object):
 						if self.useTitle:
 							self.tagged_data.append(cols[3])
 
-						if self.tagname == '7':
-							self.tag.append(cols[10])
+						if self.tagname == '1':
+							self.tag.append(cols[12])  # 1dt
+						elif self.tagname == '7':
+							self.tag.append(cols[13])  # 7dt
 						else:
-							self.tag.append(cols[11])  # 30dt
+							self.tag.append(cols[14])  # 30dt
 
 			else:
 				# folder
@@ -130,20 +137,22 @@ class preProcess(object):
 		frame = pd.concat(li, axis=0, ignore_index=True)
 		li = None
 
-		col = ['source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
-		df = frame[col]
+
+		df = frame[self.cols]
 		fig = plt.figure(figsize=(10,4), dpi=100)
 
-
-		if self.tagname == '7':
-			self.tagname = '7dt'
+		use_tag = ''
+		if self.tagname == '1':
+			use_tag = '1dt'
+		elif self.tagname == '7':
+			use_tag = '7dt'
 		else:
-			self.tagname = '30dt'
+			use_tag = '30dt'
 
 		df['month_year'] = pd.to_datetime(df['date']).dt.to_period('M')
 		# print(df.head())
 
-		bar = df.groupby(['month_year', self.tagname]).size().unstack().rename(columns={
+		bar = df.groupby(['month_year', use_tag]).size().unstack().rename(columns={
 				'n' : 'Neutral',
 				'o' : 'Cautious Optimism',
 				'co': 'Optimism',
@@ -151,23 +160,15 @@ class preProcess(object):
 				'p': 'Pessimistic'
 			}).reindex(columns=['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
-		bar.to_csv(self.model)
+		bar.to_csv(self.model + '_' + use_tag +  '.csv')
 		char = bar.plot.bar()
-
-		if self.tagname == '7':
-			char.set_xlabel('7 day predict')
-		else:
-			char.set_xlabel('30 day predict')
-
+		char.set_xlabel(self.tagname + ' day predict')
 		char.tick_params(axis='x', rotation=10, labelbottom=30)
 		if self.title:
 			char.set_title(self.title)
 
-		# plt.savefig(self.model + '.png')
+		plt.savefig(self.model + '_' + use_tag + '.png')
 		# plt.show()
-
-	def sep(self):
-
 
 	def bar(self):
 		li = []
@@ -180,17 +181,19 @@ class preProcess(object):
 		frame = pd.concat(li, axis=0, ignore_index=True)
 		li = None
 
-		col = ['source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
-		df = frame[col]
+		df = frame[self.cols]
 		fig = plt.figure(figsize=(20,10))
 		# print(df.head())
 
-		if self.tagname == '7':
-			self.tagname = '7dt'
+		use_tag = ''
+		if self.tagname == '1':
+			use_tag = '1dt'
+		elif self.tagname == '7':
+			use_tag = '7dt'
 		else:
-			self.tagname = '30dt'
+			use_tag = '30dt'
 
-		bar = df.groupby([self.tagname, 'ticker']).size().unstack().rename(
+		bar = df.groupby([use_tag, 'ticker']).size().unstack().rename(
 			index={
 				'n' : 'Neutral',
 				'o' : 'Cautious Optimism',
@@ -199,19 +202,15 @@ class preProcess(object):
 				'p': 'Pessimistic'
 			}).reindex(['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
-		print(bar)
+		bar.to_csv(self.model + '_' + use_tag + '.csv')
+
 		char = bar.plot.bar()
-
-		if self.tagname == '7':
-			char.set_xlabel('7 day predict')
-		else:
-			char.set_xlabel('30 day predict')
-
+		char.set_xlabel(self.tagname + ' day predict')
 		char.tick_params(axis='x', rotation=10, labelbottom=30)
 		if self.title:
 			char.set_title(self.title)
 
-		plt.savefig(self.model)
+		plt.savefig(self.model + '_' + use_tag + '.png')
 		# plt.show()
 
 

@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
-import sys, os, re, csv, hashlib, datetime, glob, json, math
-import traceback
+import sys, os, re, csv, hashlib, datetime, glob, json
 
 # from datetime import datetime
 from time import sleep, time
@@ -224,19 +223,19 @@ class collect(object):
 
 
 	def tag(self, diff):
-		if diff <= 2  and diff >= -2:
+		if diff <= 2.5  and diff >= -2.5:
 			return 'n' #e
 
-		if diff <= 10  and diff > 2:
+		if diff <= 7.5  and diff > 2.5:
 			return 'co' #p
 
-		if diff > 10  :
+		if diff > 7.5  :
 			return 'o'  #pp
 
-		if diff < -2  and diff >= -10:
+		if diff < -2.5  and diff >= -7.5:
 			return 'cp' # n
 
-		if diff < -10  :
+		if diff < -7.5  :
 			return 'p'  #nn
 
 
@@ -250,17 +249,23 @@ class collect(object):
 
 
 		st0 = self.dayMove(ticker, date, 0)
+		st1 = self.dayMove(ticker, date, 1)
 		st7 = self.dayMove(ticker, date, 7)
 		st30 = self.dayMove(ticker, date, 30)
 
 		if not st0 or not st7 or not st30:
 			return False
 
-		d7 = math.floor(((st0['a'] - st7['a'])/st0['a'] )* 100)
-		d30 = math.floor(((st0['a'] - st30['a'])/st0['a'] )* 100)
+		d1 = round(((st1['a'] - st0['a'])/st0['a'] )* 100, 2)
+		d7 = round(((st7['a'] - st0['a'])/st0['a'] )* 100, 2)
+		d30 = round(((st30['a'] - st0['a'])/st0['a'] )* 100, 2)
 
 		with open(self.newsCsv, 'a+', newline='') as csvfile:
-			fieldnames = [ 'source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
+			fieldnames = [ 'source', 'date', 'ticker',
+				'title', 'content_fp', '0dr',
+				'1dr', '7dr', '30dr',
+				'1d', '7d', '30d',
+				'1dt', '7dt', '30dt']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 			if self.csvheader :
 				writer.writeheader()
@@ -271,10 +276,13 @@ class collect(object):
 				'title' : title,
 				'content_fp' : fn,
 				'0dr' : st0,
+				'1dr' : st1,
 				'7dr' : st7,
 				'30dr' : st30,
+				'1d' : d1,
 				'7d' : d7,
 				'30d' : d30,
+				'1dt' : self.tag(d1),
 				'7dt' : self.tag(d7),
 				'30dt' : self.tag(d30),
 				})
