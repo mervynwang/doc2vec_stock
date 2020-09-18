@@ -49,6 +49,9 @@ class preProcess(object):
 		parser.add_argument('-a', '--tagname', default='7d', choices=['7', '30'], type=str,
 			help='7 | 30 ')
 
+		parser.add_argument('-r', '--ticker', default='7d', choices=['google', 'tesla', 'amd', 'biogen'], type=str,
+			help='ticker')
+
 		parser.add_argument('-u', '--useTitle', default=False, type=self.str2bool,
 			help='use title to train ')
 
@@ -92,7 +95,6 @@ class preProcess(object):
 			self.stopwords.add(w)
 
 		getattr(self, self.processor)()
-
 
 	def open_folder(self):
 		for folder in self.path:
@@ -164,6 +166,7 @@ class preProcess(object):
 		# plt.savefig(self.model + '.png')
 		# plt.show()
 
+	def sep(self):
 
 
 	def bar(self):

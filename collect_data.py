@@ -41,12 +41,12 @@ class collect(object):
 	collect_end = datetime.datetime(2020, 5, 30)
 	ticker_info = {
 				'google' : {
-					'keywords' : ['Alphabet Inc', 'Google LLC', 'google'],
+					'keywords' : ['Alphabet Inc', 'Google LLC', 'google', 'Alphabet'],
 					'name' : 'GOOGL',
 					'stock':{}
 				},
 				'biogen' : {
-					'keywords' : ['Biogen Idec Inc', 'biogen'],
+					'keywords' : ['Biogen Idec Inc', 'biogen', 'biib'],
 					'name' : 'BIIB',
 					'stock':{}
 				},
@@ -100,7 +100,7 @@ class collect(object):
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source',
-			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix', 'wsj_f'],
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix'],
 			help='data source'
 			)
 
@@ -124,10 +124,7 @@ class collect(object):
 
 	"""docstring for collect"""
 	def run(self):
-		if self.source == 'wsj_f':
-			self.wsj_content(self.file, False)
-		else:
-			getattr(self, self.source)()
+		getattr(self, self.source)()
 
 
 	def tii(self):
@@ -262,7 +259,7 @@ class collect(object):
 		d7 = math.floor(((st0['a'] - st7['a'])/st0['a'] )* 100)
 		d30 = math.floor(((st0['a'] - st30['a'])/st0['a'] )* 100)
 
-		with open(self.newsCsv, 'a', newline='') as csvfile:
+		with open(self.newsCsv, 'a+', newline='') as csvfile:
 			fieldnames = [ 'source', 'date', 'ticker', 'title', 'content_fp', '0dr', '7dr', '30dr', '7d', '30d', '7dt', '30dt']
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 			if self.csvheader :
@@ -544,16 +541,6 @@ class collect(object):
 				self.csvheader = False
 
 
-
-	# https://www.djreprints.com/menu/other-services/
-	# http://www.management.ntu.edu.tw/CSIC/DB/Factiva
-	# https://developer.dowjones.com/site/global/home/index.gsp
-	# https://www.wsj.com/search/term.html?KEYWORDS=BIIB&mod=searchresults_viewallresults
-	# OR https://www.wsj.com/market-data/quotes/TSLA
-	#
-	# https://www.wsj.com/news/archive/2020/08/18
-
-
 	def wsj(self):
 
 		baseUrl = 'https://www.wsj.com/news/archive/'
@@ -667,11 +654,15 @@ class collect(object):
 		return [newslinks, pages]
 
 	def wsj_content(self, link, csv):
-		print(link)
-
 		try:
 			tid = re.search('[-_](\d+)(\.html)?$', link).group(1)
 			if os.path.exists('./data/wsj/'+tid) or (not self.file and os.path.exists('./tmp/wsj_'+tid+'.html')):
+				# 0918. fetch page by
+				r = requests.get(link, headers=self.headers)
+				if r.status_code != requests.codes.ok:
+					print("Error On %s : return %s", url, r.status_code)
+					return False
+				# collect Title & datetime again
 				return False
 		except:
 			self.log("Error reg : %s : %s" % (sys.exc_info()[0], link))
@@ -717,7 +708,9 @@ class collect(object):
 
 			fn = './data/wsj/' + tid
 			ticker = self.find_tag(ct)
+
 			if ticker != False:
+				print(ticker)
 				self.toNewsCsv(fn, self.source, title, ticker, str(dt))
 
 			with open(fn , "w+") as fo:

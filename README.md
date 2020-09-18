@@ -37,8 +37,9 @@ https://towardsdatascience.com/using-word2vec-to-analyze-news-headlines-and-pred
 
 refer:
 https://arxiv.org/pdf/1408.5882v2.pdf
-
-
+https://clay-atlas.com/blog/2019/10/20/pytorch-chinese-tutorial-classifier-cifar-10/
+https://www.analyticsvidhya.com/blog/2020/01/first-text-classification-in-pytorch/
+https://www.analyticsvidhya.com/blog/2019/09/introduction-to-pytorch-from-scratch/?utm_source=blog&utm_medium=building-image-classification-models-cnn-pytorch
 
 
 py train.py bayes -t ./result/bow_ft_tag.pkl -b ./result/bow_ft_title.pkl -e 'ft_title' >> ./result/train.log

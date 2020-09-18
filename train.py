@@ -100,7 +100,7 @@ class train(object):
 
 		X_train, X_test, y_train, y_test = train_test_split(X, tag, test_size=0.3)
 
-		SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='auto')
+		SVM = svm.SVC(C=1.0, kernel='linear', degree=5, gamma='auto')
 		SVM.fit(X_train, y_train)
 		y_result = SVM.predict(X_test)
 
