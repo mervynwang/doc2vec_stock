@@ -42,4 +42,12 @@ https://www.analyticsvidhya.com/blog/2020/01/first-text-classification-in-pytorc
 https://www.analyticsvidhya.com/blog/2019/09/introduction-to-pytorch-from-scratch/?utm_source=blog&utm_medium=building-image-classification-models-cnn-pytorch
 
 
+
 py train.py bayes -t ./result/bow_ft_tag.pkl -b ./result/bow_ft_title.pkl -e 'ft_title' >> ./result/train.log
+
+stop word:
+https://medium.com/@sfhsu29/nlp-%E5%85%A5%E9%96%80-1-2-stop-words-da3d311d29bc
+
+
+
+py preprocess.py bar -p ./data/news_wsj.csv  -s ./result/wsj -a 30

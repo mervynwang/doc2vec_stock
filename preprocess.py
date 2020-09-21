@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys, json, os, pickle, csv
+import sys, json, os, pickle, csv, re
 
 
 import argparse, gensim, nltk
@@ -314,9 +314,10 @@ class preProcess(object):
 
 		for news_fn in self.fnlist:
 			with open(news_fn, 'r') as f:
-				for i, line in enumerate(f.read().splitlines(True)):
-					words = nltk.tokenize.word_tokenize(line.strip().lower())
-					# empty line
+				content = f.read().lower()
+				content = re.sub(r'([a-zA-Z]{2,})[\.\?\!]\s?', r'\1 \n', content)
+				for i, line in enumerate(content.splitlines(True)):
+					words = nltk.tokenize.word_tokenize(line.strip())
 					if len(words) == 0:
 						continue;
 					self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[news_fn[-7:] + "_" +  str(i)] ))
