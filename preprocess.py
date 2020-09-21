@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys, json, os, pickle, csv
+import sys, json, os, pickle, csv, re
 
 
 import argparse, gensim, nltk
