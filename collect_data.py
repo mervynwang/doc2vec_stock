@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys, os, re, csv, hashlib, datetime, glob, json
+import sys, os, re, csv, hashlib, datetime, glob, json, traceback
 
 # from datetime import datetime
 from time import sleep, time
@@ -99,7 +99,7 @@ class collect(object):
 		parser.add_argument('-q', '--quit', type=self.str2bool, default=True, help='quit selenium on end (1|0)')
 
 		parser.add_argument('source',
-			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix'],
+			choices=['wsj', 'usat', 'ft', 'tii', 'usat_arix', 'ft_arix', 'ft_csv', 'usat_csv', 'wsj_arix', 'wsj_csv'],
 			help='data source'
 			)
 
@@ -185,8 +185,7 @@ class collect(object):
 					stockList = json.load(stock)
 					for node in stockList:
 						date = node['date'][0:10]
-						avg = (node['high'] + node['low'])/2
-						dateNode = {'d': date, 'h': node['high'], 'l':node['low'], 'a': avg}
+						dateNode = {'d': date, 'h': node['high'], 'l':node['low'], 'c': node['close']}
 
 						self.ticker_info[ticker]['stock'][date] = dateNode
 			except:
@@ -256,9 +255,9 @@ class collect(object):
 		if not st0 or not st7 or not st30:
 			return False
 
-		d1 = round(((st1['a'] - st0['a'])/st0['a'] )* 100, 2)
-		d7 = round(((st7['a'] - st0['a'])/st0['a'] )* 100, 2)
-		d30 = round(((st30['a'] - st0['a'])/st0['a'] )* 100, 2)
+		d1 = round(((st1['c'] - st0['c'])/st0['c'] )* 100, 2)
+		d7 = round(((st7['c'] - st0['c'])/st0['c'] )* 100, 2)
+		d30 = round(((st30['c'] - st0['c'])/st0['c'] )* 100, 2)
 
 		with open(self.newsCsv, 'a+', newline='') as csvfile:
 			fieldnames = [ 'source', 'date', 'ticker',
@@ -582,7 +581,6 @@ class collect(object):
 	def wsj_arix(self):
 		self.source = 'wsj'
 		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
-		self.wsj_login()
 		self.newslist_fetch(self.wsj_content)
 
 	def wsj_login(self):
@@ -661,34 +659,23 @@ class collect(object):
 
 		return [newslinks, pages]
 
-	def wsj_content(self, link, csv):
+	def wsj_content(self, link, resv):
 		try:
 			tid = re.search('[-_](\d+)(\.html)?$', link).group(1)
 			if os.path.exists('./data/wsj/'+tid) or (not self.file and os.path.exists('./tmp/wsj_'+tid+'.html')):
-				# 0918. fetch page by
-				r = requests.get(link, headers=self.headers)
-				if r.status_code != requests.codes.ok:
-					print("Error On %s : return %s", url, r.status_code)
-					return False
-				# collect Title & datetime again
+				print("link already fetch")
 				return False
-		except:
-			self.log("Error reg : %s : %s" % (sys.exc_info()[0], link))
-			# log url
-			if not self.file :
-				with open("./tmp/wsj_to", 'a+') as f:
-					f.write("%s \n" % link)
-				return False
+
+		except Exception as e :
+			print(link)
+			self.showError(e)
+			return False
 
 		try:
 			if self.file :
 				link = os.path.realpath(link)
-				print(link)
-
 				soup = BeautifulSoup(open(link, encoding='utf8'), 'html.parser')
 			else:
-				print(link)
-
 				self.driver.get(link)
 				WebDriverWait(self.driver, 10).until(
 					EC.presence_of_element_located((By.XPATH, '//*[@id="main"]'))
@@ -706,7 +693,7 @@ class collect(object):
 			ymd = re.search('(\w+\.? \d+,? \d{4})', ts.text).group(1)
 			dt = parse(ymd).date()
 
-			title = titleDoms.text
+			title = titleDoms.text.strip("\n")
 			contentDoms = soup.select("article div.article-content p")
 			ct = ''
 			for p in contentDoms:
@@ -718,7 +705,6 @@ class collect(object):
 			ticker = self.find_tag(ct)
 
 			if ticker != False:
-				print(ticker)
 				self.toNewsCsv(fn, self.source, title, ticker, str(dt))
 
 			with open(fn , "w+") as fo:
@@ -727,6 +713,11 @@ class collect(object):
 			if self.file :
 				tmpfn = "./tmp/wsj_" + tid + ".html"
 				os.remove(tmpfn)
+
+
+			with open('./data/news_list_wsj.csv') as wsjf:
+				writer = csv.writer(wsjf)
+				writer.writerow([tid, str(dt), title, link])
 
 		except Exception as e :
 			self.showError(e)
@@ -748,6 +739,27 @@ class collect(object):
 
 		return True
 
+	def wsj_csv(self):
+		self.stock2Json()
+		self.source = 'wsj'
+		self.newsCsv = self.fnlist.replace('_list', '') + '.csv'
+
+		with open("./data/new_list_wsj.csv", 'r', encoding='utf-8') as ff :
+			rows = csv.reader(ff)
+			for cols in rows:
+				#  cols[0] id, date, title, url
+				dd = cols[1]
+				title = cols[2]
+				fn = './data/wsj/' + cols[0]
+				if os.path.exists(fn) != True:
+					print(cols)
+					continue;
+
+				with open(fn, 'r', encoding='utf-8') as fc :
+					content = fc.read()
+					ticker = self.find_tag(content)
+					if ticker != False:
+						self.toNewsCsv(fn, self.source, title, ticker, dd)
 
 	def usat_csv(self):
 		self.stock2Json()
@@ -879,7 +891,7 @@ class collect(object):
 		return [newslinks, nextlink]
 
 	"""docstring for collect"""
-	def ust_content(self, link, csv):
+	def ust_content(self, link, scsv):
 
 		if link[0:4] == "http":
 			try:

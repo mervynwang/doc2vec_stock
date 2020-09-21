@@ -9,7 +9,8 @@ import pandas as pd
 
 # svm bayes
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn import svm
 
 class train(object):
