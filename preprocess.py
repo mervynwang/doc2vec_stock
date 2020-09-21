@@ -162,10 +162,9 @@ class preProcess(object):
 
 		bar.to_csv(self.model + '_' + use_tag +  '.csv')
 		char = bar.plot.bar()
-		char.set_xlabel(self.tagname + ' day predict')
+		char.set_xlabel(self.tagname + ' days predict')
 		char.tick_params(axis='x', rotation=10, labelbottom=30)
-		if self.title:
-			char.set_title(self.title)
+		char.set_title(self.tagname + ' days predict')
 
 		plt.savefig(self.model + '_' + use_tag + '.png')
 		# plt.show()
@@ -205,10 +204,9 @@ class preProcess(object):
 		bar.to_csv(self.model + '_' + use_tag + '.csv')
 
 		char = bar.plot.bar()
-		char.set_xlabel(self.tagname + ' day predict')
+		char.set_xlabel(self.tagname + ' days predict')
 		char.tick_params(axis='x', rotation=10, labelbottom=30)
-		if self.title:
-			char.set_title(self.title)
+		char.set_title(self.tagname + ' days predict')
 
 		plt.savefig(self.model + '_' + use_tag + '.png')
 		# plt.show()
