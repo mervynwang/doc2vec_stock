@@ -40,6 +40,9 @@ https://arxiv.org/pdf/1408.5882v2.pdf
 https://clay-atlas.com/blog/2019/10/20/pytorch-chinese-tutorial-classifier-cifar-10/
 https://www.analyticsvidhya.com/blog/2020/01/first-text-classification-in-pytorch/
 https://www.analyticsvidhya.com/blog/2019/09/introduction-to-pytorch-from-scratch/?utm_source=blog&utm_medium=building-image-classification-models-cnn-pytorch
+https://github.com/graykode/xlnet-Pytorch
+
+https://medium.com/analytics-vidhya/fine-tuning-xlnet-language-model-to-get-better-results-on-text-classification-8dfb96eb49ab
 
 
 
@@ -51,3 +54,28 @@ https://medium.com/@sfhsu29/nlp-%E5%85%A5%E9%96%80-1-2-stop-words-da3d311d29bc
 
 
 py preprocess.py bar -p ./data/news_wsj.csv  -s ./result/wsj -a 30
+
+py  preprocess.py doc2vec -p ./data/news_ft.csv -s ./models/ft_doc2vec 2>&1 >ft_d2v.log; \
+py  preprocess.py doc2vec -p ./data/news_usat.csv -s ./models/usat_doc2vec 2>&1 >usat_d2v.log; \
+py  preprocess.py doc2vec -p ./data/news_wsj.csv -s ./models/wsj_doc2vec 2>&1 >wsj_d2v.log
+
+
+py  preprocess.py word2vec -p ./data/news_ft.csv -s ./models/ft_word2vec 2>&1 >ft_w2v.log; \
+py  preprocess.py word2vec -p ./data/news_usat.csv -s ./models/usat_word2vec 2>&1 >usat_w2v.log; \
+py  preprocess.py word2vec -p ./data/news_wsj.csv -s ./models/wsj_word2vec 2>&1 >wsj_w2v.log
+
+
+py  preprocess.py doc2vec -p ./data/news_wsj.csv ./data/news_ft.csv ./data/news_usat.csv  -s ./models/all_doc2vec 2>&1 >all_d2v.log ; \
+py  preprocess.py word2vec -p ./data/news_wsj.csv ./data/news_ft.csv ./data/news_usat.csv  -s ./models/all_word2vec 2>&1 >all_w2v.log &
+
+
+
+py  preprocess.py bow -p ./data/news_ft.csv -s ./models/ft_bow 2>&1 >ft_bow.log & ; \
+py  preprocess.py bow -p ./data/news_usat.csv -s ./models/usat_bow 2>&1 >usat_bow.log & ; \
+py  preprocess.py bow -p ./data/news_wsj.csv -s ./models/wsj_bow 2>&1 >wsj_bow.log &
+
+
+
+py  preprocess.py bar_ym -p ./data/news_ft.csv -s ./result/ft_ym -a 7 &
+py  preprocess.py bar_ym -p ./data/news_usat.csv -s ./result/usat_ym -a 7 &
+py  preprocess.py bar_ym -p ./data/news_wsj.csv -s ./result/wsj_ym  -a 7 &

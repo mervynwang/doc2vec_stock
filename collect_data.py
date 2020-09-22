@@ -760,6 +760,7 @@ class collect(object):
 					ticker = self.find_tag(content)
 					if ticker != False:
 						self.toNewsCsv(fn, self.source, title, ticker, dd)
+						self.csvheader = False
 
 	def usat_csv(self):
 		self.stock2Json()

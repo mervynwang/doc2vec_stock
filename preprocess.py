@@ -1,5 +1,5 @@
 # coding: utf-8
-import sys, json, os, pickle, csv, re
+import sys, json, os, pickle, csv, re, time
 
 
 import argparse, gensim, nltk
@@ -34,10 +34,14 @@ class preProcess(object):
 				'1dr', '7dr', '30dr',
 				'1d', '7d', '30d',
 				'1dt', '7dt', '30dt']
-
+	start_ts = 0.0
 
 	def __init__(self):
 		self.tagged_data = []
+		self.start_ts = time.time()
+
+	def __del__(self):
+		print('cost %.3f seconds' %(time.time() - self.start_ts))
 
 	"""docstring for collect"""
 	def setArgv(self):
@@ -139,7 +143,10 @@ class preProcess(object):
 
 
 		df = frame[self.cols]
-		fig = plt.figure(figsize=(10,4), dpi=100)
+		plt.rcParams["figure.figsize"] = (30,6)
+		fig = plt.figure()
+		# fig.set_size_inches(20,4)
+		plt.gcf().subplots_adjust(bottom=0.3)
 
 		use_tag = ''
 		if self.tagname == '1':
@@ -160,14 +167,19 @@ class preProcess(object):
 				'p': 'Pessimistic'
 			}).reindex(columns=['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
-		bar.to_csv(self.model + '_' + use_tag +  '.csv')
+		dtitle = self.model + '_' + use_tag
+
+		bar.to_csv(dtitle +  '.csv')
 		char = bar.plot.bar()
-		char.set_xlabel(self.tagname + ' day predict')
-		char.tick_params(axis='x', rotation=10, labelbottom=30)
+		char.set_xlabel(self.tagname + ' day predict', labelpad=3.0)
+		char.tick_params(axis='x', rotation=70, labelbottom=30)
+
 		if self.title:
 			char.set_title(self.title)
+		else:
+			char.set_title(dtitle)
 
-		plt.savefig(self.model + '_' + use_tag + '.png')
+		plt.savefig(dtitle + '.png')
 		# plt.show()
 
 	def bar(self):
@@ -320,9 +332,9 @@ class preProcess(object):
 				content = re.sub(r'([a-zA-Z]{2,})[\.\?\!]\s?', r'\1 \n', content)
 				for i, line in enumerate(content.splitlines(True)):
 					words = nltk.tokenize.word_tokenize(line.strip())
-					if len(words) == 0:
-						continue;
-					self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[news_fn[-7:] + "_" +  str(i)] ))
+					# if len(words) == 0:
+					# 	continue;
+					self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[news_fn + "_" +  str(i)] ))
 
 		return self
 
@@ -337,6 +349,7 @@ class preProcess(object):
 		model = gensim.models.doc2vec.Doc2Vec(vector_size=vec_size, alpha=alpha, min_alpha=0.025, min_count=5,
 						dm=1, workers=30)
 
+		print("total len %s" % len(self.tagged_data))
 		model.build_vocab(self.tagged_data)
 
 
