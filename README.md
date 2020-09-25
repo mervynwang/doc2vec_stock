@@ -45,6 +45,9 @@ https://github.com/graykode/xlnet-Pytorch
 https://medium.com/analytics-vidhya/fine-tuning-xlnet-language-model-to-get-better-results-on-text-classification-8dfb96eb49ab
 
 
+https://towardsdatascience.com/lstm-text-classification-using-pytorch-2c6c657f8fc0
+
+
 
 py train.py bayes -t ./result/bow_ft_tag.pkl -b ./result/bow_ft_title.pkl -e 'ft_title' >> ./result/train.log
 
