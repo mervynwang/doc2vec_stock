@@ -47,6 +47,10 @@ https://medium.com/analytics-vidhya/fine-tuning-xlnet-language-model-to-get-bett
 
 https://towardsdatascience.com/lstm-text-classification-using-pytorch-2c6c657f8fc0
 
+***
+https://pytorch.org/tutorials/beginner/text_sentiment_ngrams_tutorial.html
+https://github.com/pytorch/text/tree/master/examples/text_classification
+***
 
 
 py train.py bayes -t ./result/bow_ft_tag.pkl -b ./result/bow_ft_title.pkl -e 'ft_title' >> ./result/train.log
