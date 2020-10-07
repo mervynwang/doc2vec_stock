@@ -75,7 +75,7 @@ class preProcess(object):
 			help='stop words ')
 
 		parser.add_argument('processor',
-			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bar', 'bar_ym'],
+			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bar', 'bar_ym', 'sort'],
 			help='main function')
 
 		args = parser.parse_args(namespace=self)
@@ -223,6 +223,47 @@ class preProcess(object):
 
 		plt.savefig(self.model + '_' + use_tag + '.png')
 		# plt.show()
+
+	def sort(self):
+		li = []
+
+		for csvfn in self.path:
+			df = pd.read_csv(csvfn, index_col=None, header=0)
+			df = df.iloc[1:]
+			li.append(df)
+
+		frame = pd.concat(li, axis=0, ignore_index=True)
+		li = None
+
+		start_date = '2013-01-01'
+		end_date = '2020-06-30'
+		df = frame[self.cols]
+		df.set_index('date')
+		df['date'] = pd.to_datetime(df['date'])
+		mask = (df['date'] > start_date) & (df['date'] <= end_date)
+		df = df.loc[mask]
+		df.sort_values(by='date', inplace=True, ascending=True)
+
+		df = df.loc[:, ['title','1dt']]
+		#df.sort_values(by='date', inplace=True, ascending=False)
+
+		# df2 = df.rolling(100)
+		epoch = 10
+		step = 2
+		if ( step - 1 ) <= 0 :
+			step = 1
+
+		total = len(df)
+		sep = round(total / epoch)
+		verify_len = round(sep/4)
+
+		start = (step - 1) * sep
+		end = step * sep
+
+		print(df[start:end])
+		print(df[end:end+verify_len])
+
+		return (df[start:end]), (df[end:end+verify_len])
 
 
 	def wordcloud(self):

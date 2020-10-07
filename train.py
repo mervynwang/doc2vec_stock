@@ -15,9 +15,11 @@ from sklearn import svm
 
 class train(object):
 
-	processor = ''
-	model = ''
-	tag = ''
+	rows = None
+	total = 0
+	output = 5
+
+	# timer
 	start_ts = 0.0
 
 	def __init__(self):
@@ -29,11 +31,14 @@ class train(object):
 	def setArgv(self):
 		parser = argparse.ArgumentParser(description='train model')
 
-		parser.add_argument('-s', '--save', type=str, help='model save to ')
-		parser.add_argument('-t', '--tag', type=str, help='tag pkl')
-		parser.add_argument('-b', '--bow', type=str, help='bow pkl')
-		parser.add_argument('-e', '--echo', type=str, help='print fisrt')
+		parser.add_argument('-c', '--csv', type=str, nargs='+', help='csv e.g. -p csv1 csv2  ...')
+		parser.add_argument('-t', '--use-title', type=self.str2bool, default=False, help='use title')
+		parser.add_argument('-d', '--predict', type=str, choices=['1', '7', '30'], help='predict (1,7,30) day')
+		parser.add_argument('-s', '--save', type=str, help='save model to ')
 
+		parser.add_argument('-e', '--epoch', type=int, help='epoch')
+
+		parser.add_argument('-e', '--echo', type=self.str2bool, default=False help='print first')
 
 		parser.add_argument('processor',
 			choices=['rand', 'bayes', 'svm'],
@@ -44,10 +49,54 @@ class train(object):
 
 		if self.echo :
 			print("\n=====\n")
-			print("Run %s, %s :" % (self.processor, self.echo))
-			self.echo = None
+			print("Run model %s : predict %s day :" % (self.processor, self.predict))
 
 		getattr(self, self.processor)()
+
+
+
+	def csv_merge(self):
+		li = []
+		for csvfn in self.csv:
+			df = pd.read_csv(csvfn, index_col=None, header=0)
+			df = df.iloc[1:] # remove head
+			li.append(df)
+		frame = pd.concat(li, axis=0, ignore_index=True)
+		li = None
+
+		start_date = '2013-01-01'
+		end_date = '2020-06-30'
+
+		pd = frame[self.cols]
+		pd.set_index('date')
+		pd['date'] = pd.to_datetime(pd['date'])
+
+		if self.use-title:
+			# self.rows = self.rows.loc[:, 'C':'E']
+		else:
+
+
+		self.rows.set_index('date')
+		self.rows['date'] = pd.to_datetime(self.rows['date'])
+
+		mask = (self.rows['date'] > start_date) & (self.rows['date'] <= end_date)
+		self.rows = self.rows.loc[mask]
+		self.rows.sort_values(by='date', inplace=True, ascending=True)
+		self.total = len(self.rows)
+
+	def fetch(self, step):
+		if ( step - 1 ) <= 0 :
+			step = 1
+
+		sep = round(self.total / self.epoch)
+		verify_len = round(sep/4)
+
+		start = (step - 1) * sep
+		end = step * sep
+
+		return (self.rows[start:end]), (self.rows[end:end+verify_len])
+
+
 
 	def rand(self):
 		with open(self.tag, 'rb') as tfn:
