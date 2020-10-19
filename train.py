@@ -70,7 +70,8 @@ class train(object):
 		pd = frame[self.cols]
 		pd.set_index('date')
 		pd['date'] = pd.to_datetime(pd['date'])
-
+		mask = (self.rows['date'] > start_date) & (self.rows['date'] <= end_date)
+		self.rows = self.rows.loc[mask]
 		if self.use-title:
 			# self.rows = self.rows.loc[:, 'C':'E']
 		else:
