@@ -1,4 +1,6 @@
 
+https://clay-atlas.com/blog/2020/01/16/pytorch-chinese-tutorial-sentiments-analyze-classification/
+https://clay-atlas.com/blog/2020/01/21/python-chinese-pytorch-tutorial-reviews-sentiments-classification/
 
 
 https://www.ft.com/todaysnewspaper/archive

@@ -70,8 +70,8 @@ class collect(object):
 	"""docstring for collect"""
 	def __init__(self):
 		super(collect, self).__init__()
-		ua = UserAgent()
-		self.headers = {'user-agent': ua.chrome}
+		# ua = UserAgent()
+		# self.headers = {'user-agent': ua.chrome}
 		self.mkdir("./data")
 		self.mkdir("./tmp")
 
@@ -222,20 +222,20 @@ class collect(object):
 
 
 	def tag(self, diff):
-		if diff <= 2.5  and diff >= -2.5:
-			return 'n' #e
-
-		if diff <= 7.5  and diff > 2.5:
-			return 'co' #p
-
-		if diff > 7.5  :
-			return 'o'  #pp
+		if diff < -7.5  :
+			return '0'  # p
 
 		if diff < -2.5  and diff >= -7.5:
-			return 'cp' # n
+			return '1' # cp
 
-		if diff < -7.5  :
-			return 'p'  #nn
+		if diff <= 2.5  and diff >= -2.5:
+			return '2' # n
+
+		if diff <= 7.5  and diff > 2.5:
+			return '3' # co
+
+		if diff > 7.5  :
+			return '4'  #o
 
 
 	"""docstring for collect"""

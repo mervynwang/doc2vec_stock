@@ -21,9 +21,17 @@ from torchtext.data import Dataset, Example
 from torchtext.data import BucketIterator
 from torchtext.vocab import FastText
 from torchtext.vocab import CharNGram
+# from torchsummary import summary
+
+from sklearn import metrics
+
 
 import pandas as pd
 import numpy as np
+
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+print('GPU State:', device)
+
 
 embedding = FastText('simple')
 
@@ -47,32 +55,31 @@ df.sort_values(by='date', inplace=True, ascending=True)
 df = df.loc[:, ['title','30dt']]
 df = df.rename(columns={"30dt": "label"})
 
-df['label'] = df['label'].str.replace('cp', '1')
-df['label'] = df['label'].str.replace('p', '0')
-df['label'] = df['label'].str.replace('n', '2')
-df['label'] = df['label'].str.replace('co', '3')
-df['label'] = df['label'].str.replace('o', '4')
+# df['label'] = df['label'].str.replace('cp', '1')
+# df['label'] = df['label'].str.replace('p', '0')
+# df['label'] = df['label'].str.replace('n', '2')
+# df['label'] = df['label'].str.replace('co', '3')
+# df['label'] = df['label'].str.replace('o', '4')
 
-print(df.head)
+# print(df.head)
 
 print("-------------------")
 
 text_field = Field(
     sequential=True,
     tokenize='basic_english',
-    fix_length=100,
+    fix_length=64,
     lower=True
 )
 
 label_field = Field(sequential=False, use_vocab=False)
+print("-------------------")
 
 
 # sadly have to apply preprocess manually
 preprocessed_text = df['title'].apply(
     lambda x: text_field.preprocess(x)
 )
-print("-------------------")
-
 
 # path='cifar-100/cifar-100-python/pylearn2_gcn_whitened/test/test.npy'
 # sample_test = torch.from_numpy(np.load(path))
@@ -151,8 +158,11 @@ class ModelParam(object):
     def __init__(self, param_dict: dict = dict()):
         self.input_size = param_dict.get('input_size', 0)
         self.vocab_size = param_dict.get('vocab_size')
-        self.embedding_dim = param_dict.get('embedding_dim', 600)
+        self.embedding_dim = param_dict.get('embedding_dim', 300)
         self.target_dim = param_dict.get('target_dim', 5)
+
+
+#  note: https://clay-atlas.com/blog/2020/07/05/pytorch-cn-note-how-to-load-pre-train-gensim-model-nn-embedding/
 
 class MyModel(nn.Module):
     def __init__(self, model_param: ModelParam):
@@ -172,6 +182,25 @@ class MyModel(nn.Module):
         features = self.lin(features)
         return features
 
+class FCModel(nn.Module):
+    def __init__(self, model_param: ModelParam):
+        super(FCModel, self).__init__()
+        self.main = nn.Sequential(
+            nn.Linear(5000, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.Linear(256, 16),
+            nn.ReLU(),
+            nn.Linear(16, 4),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.main(x)
+
 class MyModelWithPretrainedEmbedding(nn.Module):
     def __init__(self, model_param: ModelParam, embedding):
         super().__init__()
@@ -190,13 +219,20 @@ class MyModelWithPretrainedEmbedding(nn.Module):
 model_param = ModelParam(
     param_dict=dict(
         vocab_size=len(text_field.vocab),
-        input_size=100
+        input_size=64
     )
 )
+
 model = MyModel(model_param)
+# model = FCModel(model_param)
+
+# model.to(device)
+
+
+# summary(model, (1, 28, 28))
 loss_function = nn.CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=0.01)
-epochs = 8
+epochs = 10
 
 
 for epoch in range(epochs):
@@ -206,7 +242,10 @@ for epoch in range(epochs):
     nu = 0
     for batch in train_iter:
         optimizer.zero_grad()
+        # inputs = batch.to(device)
+        # inputs = inputs.view(-1, 5000)
 
+        # print(batch.title)
         prediction = model(batch.title.T)
         loss = loss_function(prediction, batch.label)
         loss.backward()

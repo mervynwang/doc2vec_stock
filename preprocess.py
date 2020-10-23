@@ -160,11 +160,11 @@ class preProcess(object):
 		# print(df.head())
 
 		bar = df.groupby(['month_year', use_tag]).size().unstack().rename(columns={
-				'n' : 'Neutral',
-				'o' : 'Cautious Optimism',
-				'co': 'Optimism',
-				'cp' : 'Cautious Pessimistic',
-				'p': 'Pessimistic'
+				2 : 'Neutral',
+				3 : 'Cautious Optimism',
+				4 : 'Optimism',
+				1 : 'Cautious Pessimistic',
+				0 : 'Pessimistic'
 			}).reindex(columns=['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
 		dtitle = self.model + '_' + use_tag
@@ -207,11 +207,11 @@ class preProcess(object):
 
 		bar = df.groupby([use_tag, 'ticker']).size().unstack().rename(
 			index={
-				'n' : 'Neutral',
-				'o' : 'Cautious Optimism',
-				'co': 'Optimism',
-				'cp' : 'Cautious Pessimistic',
-				'p': 'Pessimistic'
+				2 : 'Neutral',
+				3 : 'Cautious Optimism',
+				4 : 'Optimism',
+				1 : 'Cautious Pessimistic',
+				0 : 'Pessimistic'
 			}).reindex(['Pessimistic', 'Cautious Pessimistic' , 'Neutral', 'Cautious Optimism', 'Optimism'])
 
 		bar.to_csv(self.model + '_' + use_tag + '.csv')
