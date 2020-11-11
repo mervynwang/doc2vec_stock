@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
 import torch.nn as nn
 
+import torch.nn.functional as F
+
 import pandas as pd
 import numpy as np
 import time
@@ -23,18 +25,23 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
 
-from torchtext.data import Field
+# from torchtext.data import Field
+
+from gensim.models.doc2vec import Doc2Vec
+
+
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 print('GPU State:', device)
 
 print("-------------------")
 tokenize = lambda x: x.split()
-TEXT = Field(sequential=True, tokenize=tokenize, lower=True)
+# TEXT = Field(sequential=True, tokenize=tokenize, lower=True)
 print("-------------------")
 
 class newsDataset(Dataset):
     def __init__(self, train):
+        doc2vec = Doc2Vec.load("./vecs/usat_doc2vec")
         self.train = train
         self.data = []
         self.labels = []
@@ -60,14 +67,18 @@ class newsDataset(Dataset):
         df = df.head()
         for index, row in df.iterrows():
             print("index %d : %s " % (index,row))
-            # to v
-            self.data.append(row['title'])
+
+            vec = doc2vec.infer_vector(row['title'].split())
+            print("vec %d , title :: %s " %  (len(vec), row['title']))
+
+            self.data.append(vec)
             self.labels.append(row['label'])
 
         # List convert to tensor
-        print(self.data)
+        # print(self.data)
+        # pad = torch.tensor(0)
 
-        self.data = torch.tensor(self.data).float()
+        self.data =  torch.tensor(self.data).float()
         self.labels = torch.tensor(self.labels).float()
 
     def __getitem__(self, index):
@@ -80,24 +91,30 @@ print("-------------------")
 
 
 # Model
-class fully_connected_model(nn.Module):
+class BaseModel(nn.Module):
     def __init__(self):
-        super(fully_connected_model, self).__init__()
-        self.main = nn.Sequential(
-            nn.Linear(5000, 2048),
-            nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 256),
-            nn.ReLU(),
-            nn.Linear(256, 16),
-            nn.ReLU(),
-            nn.Linear(16, 4),
-            nn.Sigmoid()
-        )
+        super(BaseModel, self).__init__()
+        embedding_dim = 5
+        self.model_name = 'BaseModel'
 
-    def forward(self, input):
-        return self.main(input)
+        self.encoder = nn.Embedding(200,embedding_dim)
+
+        self.fc = nn.Linear(embedding_dim, 5)
+
+
+        self.properties = {"model_name":self.__class__.__name__,
+#                "embedding_dim":self.opt.embedding_dim,
+#                "embedding_training":self.opt.embedding_training,
+#                "max_seq_len":self.opt.max_seq_len,
+                "batch_size":2,
+                "learning_rate":2e-5,
+                "keep_dropout":0.8,
+                }
+
+    def forward(self,content):
+        content_=torch.mean(self.encoder(content),dim=1)
+        out=self.fc(content_.view(content_.size(0),-1))
+        return out
 
 # Loss
 def loss_function(inputs, targets):
@@ -105,7 +122,7 @@ def loss_function(inputs, targets):
 
 
 # Model
-model = fully_connected_model().to(device)
+model = BaseModel().to(device)
 print(model)
 
 
@@ -118,36 +135,43 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 
 # DataLoader
 train_set = newsDataset(train=True)
-print(train_set)
-# train_loader = data.DataLoader(train_set, batch_size=batch_size, shuffle=True)
+
+print("-------------------")
+print("--------train_set-----------")
+# print(train_set[0])
+# print(len(train_set[0][0]))
+print("-------------------")
+print("-------------------")
+
+train_loader = data.DataLoader(train_set, batch_size=batch_size)
 
 
 # Train
 
-# for epoch in range(epochs):
-#     epoch += 1
+for epoch in range(epochs):
+    epoch += 1
 
-#     for times, data in enumerate(train_loader):
-#         times += 1
-#         inputs = data[0].to(device)
-#         labels = data[1].to(device)
+    for times, data in enumerate(train_loader):
+        times += 1
+        inputs = data[0].to(device)
+        labels = data[1].to(device)
 
-#         # Zero gradients
-#         optimizer.zero_grad()
+        # Zero gradients
+        optimizer.zero_grad()
 
-#         # Forward & Backward
-#         outputs = model(inputs).to(device)
-#         loss = loss_function(outputs, labels)
-#         loss.backward()
-#         optimizer.step()
+        # Forward & Backward
+        outputs = model(inputs).to(device)
+        loss = loss_function(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-#         # Display loss
-#         if times % 100 == 0 or times == len(train_loader):
-#             print('[{}/{}, {}/{}] loss: {:.3f}'.format(epoch, epochs, times, len(train_loader), loss.item()))
+        # Display loss
+        if times % 100 == 0 or times == len(train_loader):
+            print('[{}/{}, {}/{}] loss: {:.3f}'.format(epoch, epochs, times, len(train_loader), loss.item()))
 
 
-# print('Training Finished.')
+print('Training Finished.')
 
-# Saved
-# torch.save(model, 'fc.pth')
-# print('Model saved.')
+Saved
+torch.save(model, 'fc.pth')
+print('Model saved.')
