@@ -22,13 +22,15 @@ https://github.com/Currie32/Predicting-the-Dow-Jones-with-Headlines.git
 https://medium.com/@Currie32/predicting-the-stock-market-with-the-news-and-deep-learning-7fc8f5f639bc
 
 
+nn.Embedding() 讀取 Gensim 模型的方法
+https://clay-atlas.com/blog/2020/07/05/pytorch-cn-note-how-to-load-pre-train-gensim-model-nn-embedding/
+
 
 BOW + SVM / BOW + Naive Bayes
 https://nlp.stanford.edu/pubs/sidaw12_simple_sentiment.pdf
 
 Bayes -> good at snippets
 svm -> full text
-
 
 https://towardsdatascience.com/implementing-multi-class-text-classification-with-doc2vec-df7c3812824d
 

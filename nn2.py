@@ -66,10 +66,11 @@ class newsDataset(Dataset):
 
         df = df.head()
         for index, row in df.iterrows():
-            print("index %d : %s " % (index,row))
+            # print("index %d : %s " % (index,row))
 
             vec = doc2vec.infer_vector(row['title'].split())
             print("vec %d , title :: %s " %  (len(vec), row['title']))
+            print(vec)
 
             self.data.append(vec)
             self.labels.append(row['label'])
@@ -138,8 +139,8 @@ train_set = newsDataset(train=True)
 
 print("-------------------")
 print("--------train_set-----------")
-# print(train_set[0])
-# print(len(train_set[0][0]))
+print(train_set[0])
+# # print(len(train_set[0][0]))
 print("-------------------")
 print("-------------------")
 
@@ -148,30 +149,30 @@ train_loader = data.DataLoader(train_set, batch_size=batch_size)
 
 # Train
 
-for epoch in range(epochs):
-    epoch += 1
+# for epoch in range(epochs):
+#     epoch += 1
 
-    for times, data in enumerate(train_loader):
-        times += 1
-        inputs = data[0].to(device)
-        labels = data[1].to(device)
+#     for times, data in enumerate(train_loader):
+#         times += 1
+#         inputs = data[0].to(device)
+#         labels = data[1].to(device)
 
-        # Zero gradients
-        optimizer.zero_grad()
+#         # Zero gradients
+#         optimizer.zero_grad()
 
-        # Forward & Backward
-        outputs = model(inputs).to(device)
-        loss = loss_function(outputs, labels)
-        loss.backward()
-        optimizer.step()
+#         # Forward & Backward
+#         outputs = model(inputs).to(device)
+#         loss = loss_function(outputs, labels)
+#         loss.backward()
+#         optimizer.step()
 
-        # Display loss
-        if times % 100 == 0 or times == len(train_loader):
-            print('[{}/{}, {}/{}] loss: {:.3f}'.format(epoch, epochs, times, len(train_loader), loss.item()))
+#         # Display loss
+#         if times % 100 == 0 or times == len(train_loader):
+#             print('[{}/{}, {}/{}] loss: {:.3f}'.format(epoch, epochs, times, len(train_loader), loss.item()))
 
 
-print('Training Finished.')
+# print('Training Finished.')
 
-Saved
-torch.save(model, 'fc.pth')
-print('Model saved.')
+# Saved
+# torch.save(model, 'fc.pth')
+# print('Model saved.')
