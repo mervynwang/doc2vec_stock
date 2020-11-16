@@ -13,6 +13,8 @@ parser.add_argument('-c', '--csv', nargs='+', required=True,
                         help='-c  csv1 csv2 ...')
 parser.add_argument('-p', '--predict', default=7, type=int, choices=['1', '7', '30'], help='1 | 7 | 30')
 parser.add_argument('-t', '--use_title', default=1, type=int, help='use title to train')
+parser.add_argument('-a', '--pad_size', default=32, type=int, help='pad_size')
+parser.add_argument('-m', '--min_freq', default=1, type=int, help='min_freq')
 parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
 parser.add_argument('--embedding', default='pre_trained', type=str, help='random or pre_trained')
 args = parser.parse_args()
@@ -40,6 +42,8 @@ if __name__ == '__main__':
     config.csv = args.csv
     config.predict = args.predict
     config.use_title = args.use_title
+    config.pad_size = args.pad_size
+    config.min_freq = 1
 
     np.random.seed(1)
     torch.manual_seed(1)
