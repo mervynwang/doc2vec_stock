@@ -28,11 +28,9 @@ def build_vocab(file_path, tokenizer, max_size, min_freq):
     return vocab_dic
 
 
-def build_dataset(config, ues_word):
-    if ues_word:
-        tokenizer = lambda x: x.split(' ')  # 以空格隔开，word-level
-    else:
-        tokenizer = lambda x: [y for y in x]  # char-level
+def build_dataset(config):
+    tokenizer = lambda x: x.split(' ')  # 以空格隔开，word-level
+
     if os.path.exists(config.vocab_path):
         vocab = pkl.load(open(config.vocab_path, 'rb'))
     else:
@@ -92,7 +90,7 @@ class DatasetIterater(object):
         self.batch_size = batch_size
         self.batches = batches
         self.n_batches = len(batches) // batch_size
-        self.residue = False  # 记录batch数量是否为整数 
+        self.residue = False  # 记录batch数量是否为整数
         if len(batches) % self.n_batches != 0:
             self.residue = True
         self.index = 0
