@@ -104,21 +104,20 @@ def build_dataset(config):
                 token = token[:pad_size]
                 seq_len = pad_size
 
-        # word to id
-        # for word in token:
-        #     words_line.append(vocab.get(word, vocab.get(UNK)))
-        contents.append((token, int(label), seq_len))
+        contents.append((token, int(label), seq_len, row.date))
         pkl.dump(vocab_dic, open(config.vocab_path, 'wb'))
 
-    for node in contents:
+    for idx, node in enumerate(contents):
+        print("===========")
+        print(contents[idx])
         words_line = []
         for word in node[0]:
             words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
-        node[0] = words_line
+        contents[idx] = (words_line, node[1], node[2])
 
-        print(node[0])
+        print(contents[idx])
 
-    return {}, [], [], []
+    return vocab_dic, contents
 
         # with open(path, 'r', encoding='UTF-8') as f:
         #     for line in tqdm(f):
@@ -165,6 +164,17 @@ class DatasetIterater(object):
         # pad前的长度(超过pad_size的设为pad_size)
         seq_len = torch.LongTensor([_[2] for _ in datas]).to(self.device)
         return (x, seq_len), y
+
+    def get_test(self, dev = False):
+        index = self.index
+        next_step = 1 if dev == False else 2
+
+        if (index + next_step) >= self.n_batches:
+            index = next_step
+
+        batches = self.batches[ (index + next_step)  * self.batch_size: len(self.batches)]
+        batches = self._to_tensor(batches)
+        return batches
 
     def __next__(self):
         if self.residue and self.index == self.n_batches:

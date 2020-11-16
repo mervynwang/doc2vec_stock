@@ -26,7 +26,7 @@ def init_network(model, method='xavier', exclude='embedding', seed=123):
                 pass
 
 
-def train(config, model, train_iter, dev_iter, test_iter):
+def train(config, model, train_iter):
     start_time = time.time()
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -42,6 +42,8 @@ def train(config, model, train_iter, dev_iter, test_iter):
         print('Epoch [{}/{}]'.format(epoch + 1, config.num_epochs))
         # scheduler.step() # 学习率衰减
         for i, (trains, labels) in enumerate(train_iter):
+            dev_iter = train_iter.get_test(True)
+
             outputs = model(trains)
             model.zero_grad()
             loss = F.cross_entropy(outputs, labels)
@@ -77,6 +79,8 @@ def train(config, model, train_iter, dev_iter, test_iter):
         if flag:
             break
     writer.close()
+
+    test_iter = train_iter.get_test()
     test(config, model, test_iter)
 
 
