@@ -1,0 +1,5 @@
+Pessimistic
+Cautious Pessimistic
+Neutral
+Cautious Optimism
+Optimism

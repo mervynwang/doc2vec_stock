@@ -12,36 +12,11 @@ import pandas as pd
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
 
-
-def build_vocab(file_path, tokenizer, max_size, min_freq):
-    vocab_dic = {}
-    with open(file_path, 'r', encoding='UTF-8') as f:
-        for line in tqdm(f):
-            lin = line.strip()
-            if not lin:
-                continue
-            content = lin.split('\t')[0]
-            for word in tokenizer(content):
-                vocab_dic[word] = vocab_dic.get(word, 0) + 1
-        vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= min_freq], key=lambda x: x[1], reverse=True)[:max_size]
-        vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
-        vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
-    return vocab_dic
-
-
 def build_dataset(config):
-    tokenizer = lambda x: x.split(' ')
-
-
-    # if os.path.exists(config.vocab_path):
-    #     vocab = pkl.load(open(config.vocab_path, 'rb'))
-    # else:
-    #     vocab = build_vocab(config.train_path, tokenizer=tokenizer, max_size=MAX_VOCAB_SIZE, min_freq=1)
-    #     pkl.dump(vocab, open(config.vocab_path, 'wb'))
-    # print(f"Vocab size: {len(vocab)}")
 
     pad_size = config.pad_size
     vocab_dic = {}
+    vocab_build = True
     contents = []
     cols = [ 'source', 'date', 'ticker',
                 'title', 'content_fp', '0dr',
@@ -52,6 +27,12 @@ def build_dataset(config):
     start_date = '2013-01-01'
     end_date = '2019-12-30'
     li = []
+    tokenizer = lambda x: x.split(' ')
+
+    if os.path.exists(config.vocab_path):
+        vocab = pkl.load(open(config.vocab_path, 'rb'))
+        vocab_build = False
+        print(f"Vocab size: {len(vocab)}")
 
     for csvfn in config.csv:
         df = pd.read_csv(csvfn, index_col=None, header=0)
@@ -75,9 +56,6 @@ def build_dataset(config):
     else:
         use_tag = '30dt'
 
-    print(use_tag)
-    print("=======")
-
     df = df.loc[:, ['date', 'title', 'content_fp', use_tag]]
     for row in df.itertuples():
         label = row._4
@@ -91,11 +69,12 @@ def build_dataset(config):
         token = tokenizer(content)
         seq_len = len(token)
 
-        for word in token:
-            vocab_dic[word] = vocab_dic.get(word, 0) + 1
-        vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= config.min_freq], key=lambda x: x[1], reverse=True)[:MAX_VOCAB_SIZE]
-        vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
-        vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
+        if vocab_build == True:
+            for word in token:
+                vocab_dic[word] = vocab_dic.get(word, 0) + 1
+            vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= config.min_freq], key=lambda x: x[1], reverse=True)[:MAX_VOCAB_SIZE]
+            vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
+            vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
 
         if pad_size:
             if len(token) < pad_size:
@@ -103,47 +82,21 @@ def build_dataset(config):
             else:
                 token = token[:pad_size]
                 seq_len = pad_size
+            contents.append((token, int(label), seq_len)) #, row.date
+        else:
+            for word in token:
+                words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
+            contents.append((words_line, int(label), seq_len)) #, row.date
 
-        contents.append((token, int(label), seq_len, row.date))
+    if vocab_build == True:
         pkl.dump(vocab_dic, open(config.vocab_path, 'wb'))
-
-    for idx, node in enumerate(contents):
-        print("===========")
-        print(contents[idx])
-        words_line = []
-        for word in node[0]:
-            words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
-        contents[idx] = (words_line, node[1], node[2])
-
-        print(contents[idx])
+        for idx, node in enumerate(contents):
+            words_line = []
+            for word in node[0]:
+                words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
+            contents[idx] = (words_line, node[1], node[2]) #node[3]
 
     return vocab_dic, contents
-
-        # with open(path, 'r', encoding='UTF-8') as f:
-        #     for line in tqdm(f):
-        #         lin = line.strip()
-        #         if not lin:
-        #             continue
-        #         content, label = lin.split('\t')
-        #         words_line = []
-        #         token = tokenizer(content)
-        #         seq_len = len(token)
-        #         if pad_size:
-        #             if len(token) < pad_size:
-        #                 token.extend([PAD] * (pad_size - len(token)))
-        #             else:
-        #                 token = token[:pad_size]
-        #                 seq_len = pad_size
-        #         # word to id
-        #         for word in token:
-        #             words_line.append(vocab.get(word, vocab.get(UNK)))
-        #         contents.append((words_line, int(label), seq_len))
-        # return contents  # [([...], 0), ([...], 1), ...]
-
-    # train = load_dataset(config.csv, config.predict, config.use_title, config.pad_size)
-    # dev = load_dataset(config.csv, config.predict, config.use_title, config.pad_size)
-    # test = load_dataset(config.csv, config.predict, config.use_title, config.pad_size)
-    # return vocab, train, dev, test
 
 
 class DatasetIterater(object):
@@ -165,16 +118,15 @@ class DatasetIterater(object):
         seq_len = torch.LongTensor([_[2] for _ in datas]).to(self.device)
         return (x, seq_len), y
 
-    def get_test(self, dev = False):
-        index = self.index
-        next_step = 1 if dev == False else 2
+    def go_next(self):
+        self.index += 1
+        if self.index >= self.n_batches:
+            self.index = 0
 
-        if (index + next_step) >= self.n_batches:
-            index = next_step
-
-        batches = self.batches[ (index + next_step)  * self.batch_size: len(self.batches)]
-        batches = self._to_tensor(batches)
-        return batches
+    def go_prev(self):
+        self.index -= 1
+        # if self.index >= self.n_batches:
+        #     self.index = 0
 
     def __next__(self):
         if self.residue and self.index == self.n_batches:

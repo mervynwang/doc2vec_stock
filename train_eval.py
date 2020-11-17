@@ -37,13 +37,11 @@ def train(config, model, train_iter):
     dev_best_loss = float('inf')
     last_improve = 0  # 记录上次验证集loss下降的batch数
     flag = False  # 记录是否很久没有效果提升
-    writer = SummaryWriter(log_dir=config.log_path + '/' + time.strftime('%m-%d_%H.%M', time.localtime()))
+    writer = SummaryWriter(log_dir=config.log_path + '/' + time.strftime('%m%d_%H.%M', time.localtime()) + config.args )
     for epoch in range(config.num_epochs):
         print('Epoch [{}/{}]'.format(epoch + 1, config.num_epochs))
         # scheduler.step() # 学习率衰减
         for i, (trains, labels) in enumerate(train_iter):
-            dev_iter = train_iter.get_test(True)
-
             outputs = model(trains)
             model.zero_grad()
             loss = F.cross_entropy(outputs, labels)
@@ -54,7 +52,7 @@ def train(config, model, train_iter):
                 true = labels.data.cpu()
                 predic = torch.max(outputs.data, 1)[1].cpu()
                 train_acc = metrics.accuracy_score(true, predic)
-                dev_acc, dev_loss = evaluate(config, model, dev_iter)
+                dev_acc, dev_loss = evaluate(config, model, train_iter, dev=True)
                 if dev_loss < dev_best_loss:
                     dev_best_loss = dev_loss
                     torch.save(model.state_dict(), config.save_path)
@@ -80,8 +78,7 @@ def train(config, model, train_iter):
             break
     writer.close()
 
-    test_iter = train_iter.get_test()
-    test(config, model, test_iter)
+    test(config, model, train_iter)
 
 
 def test(config, model, test_iter):
@@ -100,12 +97,13 @@ def test(config, model, test_iter):
     print("Time usage:", time_dif)
 
 
-def evaluate(config, model, data_iter, test=False):
+def evaluate(config, model, data_iter, test=False, dev=False):
     model.eval()
     loss_total = 0
     predict_all = np.array([], dtype=int)
     labels_all = np.array([], dtype=int)
     with torch.no_grad():
+        data_iter.go_next()
         for texts, labels in data_iter:
             outputs = model(texts)
             loss = F.cross_entropy(outputs, labels)
