@@ -8,19 +8,20 @@ from train_eval import train, init_network
 from importlib import import_module
 import argparse
 
-parser = argparse.ArgumentParser(description='Chinese Text Classification')
+parser = argparse.ArgumentParser(description='Stock News Text Classification')
 
 parser.add_argument('-d', '--dataset', type=str, required=True,  help='Dataset Name')
 parser.add_argument('-c', '--csv', nargs='+', required=True,
                         help='-c  csv1 csv2 ...')
-parser.add_argument('-p', '--predict', default=7, type=int, choices=['1', '7', '30'], help='1 | 7 | 30')
+parser.add_argument('-p', '--predict', default=7, type=int, choices=[1, 7, 30], help='1 | 7 | 30')
 parser.add_argument('-t', '--use_title', default=0, type=int, help='use title to train')
 parser.add_argument('-a', '--pad_size', default=32, type=int, help='pad_size')
 parser.add_argument('-m', '--min_freq', default=1, type=int, help='min_freq')
+parser.add_argument('-v', '--vocab', default='', type=str, help='vocab pkl')
+parser.add_argument('-e', '--embedding', default='pre_trained', type=str, help='random or pre_trained')
+parser.add_argument('-n', '--emb_type', default=1, choices=[1, 2, 3], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy')
+parser.add_argument('-b', '--batch_size', default=10, type=int, help='batch_size')
 parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
-parser.add_argument('--embedding', default='pre_trained', type=str, help='random or pre_trained')
-parser.add_argument('-e', '--emb_type', default=1, choices=[1, 2, 3], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy')
-parser.add_argument('-b', '--batch_size', default=0, type=int, help='batch_size')
 args = parser.parse_args()
 
 
@@ -85,7 +86,10 @@ if __name__ == '__main__':
     if args.batch_size > 1 :
         config.batch_size = args.batch_size
 
-    print("vocab: %s"  % config.vocab_path)
+    if os.path.exists(args.vocab):
+        config.vocab_path = args.vocab
+
+    print("vocab path: %s"  % config.vocab_path)
 
     np.random.seed(1)
     torch.manual_seed(1)
@@ -106,3 +110,6 @@ if __name__ == '__main__':
         init_network(model)
     print(model.parameters)
     train(config, model, train_iter)
+
+    time_dif = get_time_dif(start_time)
+    print("Time usage:", time_dif)

@@ -12,7 +12,7 @@ class Config(object):
         self.model_name = 'DPCNN'
         self.args = ''
         self.class_list = [x.strip() for x in open(
-            '/class.txt', encoding='utf-8').readlines()]              # 类别名单
+            'class.txt', encoding='utf-8').readlines()]              # 类别名单
         self.vocab_path = dataset + '/vocab.pkl'                                # 词表
         self.save_path = dataset + '/saved_dict/' + self.model_name + '.ckpt'        # 模型训练结果
         self.log_path = dataset + '/log/' + self.model_name
