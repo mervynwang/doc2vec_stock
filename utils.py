@@ -133,6 +133,7 @@ class DatasetIterater(object):
             self.residue = True
         self.index = 0
         self.device = device
+        self.oindex = 0
 
     def _to_tensor(self, datas):
         try:
@@ -146,15 +147,14 @@ class DatasetIterater(object):
             print(datas)
             raise e
 
-    def go_next(self):
-        self.index += 1
+    def go_next(self, dev = True):
+        self.oindex = self.index
+        self.index += 1 if dev == True else 2
         if self.index >= self.n_batches:
             self.index = 0
 
     def go_prev(self):
-        self.index -= 1
-        # if self.index >= self.n_batches:
-        #     self.index = 0
+        self.index = self.oindex
 
     def __next__(self):
         if self.residue and self.index == self.n_batches:

@@ -71,7 +71,7 @@ if __name__ == '__main__':
     else:
         config.vocab_path = config.vocab_path.replace('.', '_' + str(args.pad_size) + '_fulltext.')
         config.save_path = config.save_path.replace('.', '_f.')
-        config.args += "_ft"
+        config.args += "_fc"
 
     config.embed = config.embedding_pretrained.size(1)\
         if config.embedding_pretrained is not None else 300           # 字向量维度

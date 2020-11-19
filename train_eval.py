@@ -103,7 +103,7 @@ def evaluate(config, model, data_iter, test=False, dev=False):
     predict_all = np.array([], dtype=int)
     labels_all = np.array([], dtype=int)
     with torch.no_grad():
-        data_iter.go_next()
+        data_iter.go_next(dev)
         for texts, labels in data_iter:
             outputs = model(texts)
             loss = F.cross_entropy(outputs, labels)
@@ -112,6 +112,8 @@ def evaluate(config, model, data_iter, test=False, dev=False):
             predic = torch.max(outputs.data, 1)[1].cpu().numpy()
             labels_all = np.append(labels_all, labels)
             predict_all = np.append(predict_all, predic)
+
+        data_iter.go_prev()
 
     acc = metrics.accuracy_score(labels_all, predict_all)
     if test:
