@@ -112,4 +112,4 @@ if __name__ == '__main__':
     train(config, model, train_iter)
 
     time_dif = get_time_dif(start_time)
-    print("Time usage:", time_dif)
+    print("Total Time usage:", time_dif)

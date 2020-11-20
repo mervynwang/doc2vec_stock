@@ -94,7 +94,7 @@ def test(config, model, test_iter):
     print("Confusion Matrix...")
     print(test_confusion)
     time_dif = get_time_dif(start_time)
-    print("Time usage:", time_dif)
+    print("Test Time usage:", time_dif)
 
 
 def evaluate(config, model, data_iter, test=False, dev=False):
