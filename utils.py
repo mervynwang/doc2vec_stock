@@ -12,7 +12,7 @@ import pandas as pd
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
 
-def build_dataset(config, show = False):
+def build_dataset(config, ticker = '',show = False):
 
     pad_size = config.pad_size
     vocab_dic = {}
@@ -47,6 +47,9 @@ def build_dataset(config, show = False):
     df.set_index('date')
     mask = (df['date'] > start_date) & (df['date'] <= end_date)
     df = df.loc[mask]
+    if ticker != '':
+        df = df[ticker = ticker]
+
     df.sort_values(by='date', inplace=True, ascending=True)
 
     use_tag = ''
@@ -59,6 +62,10 @@ def build_dataset(config, show = False):
 
     df = df.loc[:, ['date', 'title', 'content_fp', use_tag]]
     max_len = 0
+
+
+
+
     for row in df.itertuples():
         label = row._4
         content = row.title

@@ -21,6 +21,7 @@ parser.add_argument('-v', '--vocab', default='', type=str, help='vocab pkl')
 parser.add_argument('-e', '--embedding', default='pre_trained', type=str, help='random or pre_trained')
 parser.add_argument('-n', '--emb_type', default=1, choices=[1, 2, 3], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy')
 parser.add_argument('-b', '--batch_size', default=10, type=int, help='batch_size')
+parser.add_argument('--ticker', type=str, default='', choices=['google','tesla', 'amd', 'biogen'], help='ticker')
 parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
 args = parser.parse_args()
 
@@ -98,7 +99,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     print("Loading data...")
-    vocab, train_data = build_dataset(config)
+    vocab, train_data = build_dataset(config, args.ticker)
     train_iter = build_iterator(train_data, config)
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
