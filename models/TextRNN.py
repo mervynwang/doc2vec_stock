@@ -7,14 +7,15 @@ import numpy as np
 class Config(object):
 
     """配置参数"""
-    def __init__(self, dataset, embedding = False):
+    def __init__(self, dataset_path, embedding = False):
         self.model_name = 'TextRNN'
         self.args = ''
+        self.vocab_path = ''
+
         self.class_list = [x.strip() for x in open(
             'class.txt', encoding='utf-8').readlines()]              # 类别名单
-        self.vocab_path = dataset + '/vocab.pkl'                                # 词表
-        self.save_path = dataset + '/saved_dict/' + self.model_name + '.ckpt'        # 模型训练结果
-        self.log_path = dataset + '/log/' + self.model_name
+        self.save_path = dataset_path + '/saved_dict/' + self.model_name + '.ckpt'        # 模型训练结果
+        self.log_path = dataset_path + '/'  + self.model_name
         # self.embedding_pretrained = torch.tensor(
         #     np.load(dataset + '/data/' + embedding)["embeddings"].astype('float32'))\
         #     if embedding != 'random' else None                                       # 预训练词向量

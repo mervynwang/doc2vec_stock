@@ -1,6 +1,6 @@
 # coding: UTF-8
 import os
-import torch
+import torch, nltk
 import numpy as np
 import pickle as pkl
 from tqdm import tqdm
@@ -11,7 +11,7 @@ import pandas as pd
 
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
-tokenizer = lambda x: x.split(' ')
+# tokenizer = lambda x: x.split(' ')
 
 def fetch_data(config, test = False ,ticker = ''):
     """
@@ -74,19 +74,31 @@ def build_vocab(config):
         @param object {vocab_path, rebuild, show, use_title, min_freq }
     """
 
+
+    if config.vocab_path == '' :
+        config.vocab_path = './vecs/vocab_' +  config.dataset
+        config.vocab_path += '_t' if config.use_title == 1 else '_a'
+        config.vocab_path += '_p' + str(config.pad_size)
+        config.vocab_path += '_f' + str(config.min_freq)
+        config.vocab_path += '.pkl'
+        print("vocab_path is %s " % config.vocab_path )
+
     if os.path.exists(config.vocab_path) and config.rebuild == False:
         vocab_dic = pkl.load(open(config.vocab_path, 'rb'))
-        vocab_build = False
+        if config.show :
+            print(vocab_dic)
         print(f"Vocab size: {len(vocab_dic)}")
         return vocab_dic
+    else:
+        vocab_dic = {}
+        print("rebuild")
 
     rows_len = []
     max_len = 0
     df, _, _ = fetch_data(config)
 
     for row in df.itertuples():
-        label = row._4
-        content = row.title
+        content = ''
         if config.use_title == 0 :
             with open(row.content_fp, 'r', encoding='UTF-8') as f:
                 content = f.read().lower()
@@ -100,7 +112,7 @@ def build_vocab(config):
             rows_len.append(clen)
 
         words_line = []
-        token = tokenizer(content)
+        token = nltk.tokenize.word_tokenize(content)
         seq_len = len(token)
 
         for word in token:
@@ -115,6 +127,7 @@ def build_vocab(config):
         avg = sum(rows_len) / len(rows_len)
         med = np.median(rows_len)
         print(" max_len : %d , avg : %d, median %d" % (max_len, avg, med) )
+        print(vocab_dic)
 
     return vocab_dic
 
@@ -123,6 +136,15 @@ def build_dataset(config, ticker = ''):
     pad_size = config.pad_size
     vocab = build_vocab(config)
     df, df_20, df_test =  fetch_data(config, ticker=ticker, test = True)
+
+    def biGramHash(sequence, t, buckets):
+        t1 = sequence[t - 1] if t - 1 >= 0 else 0
+        return (t1 * 14918087) % buckets
+
+    def triGramHash(sequence, t, buckets):
+        t1 = sequence[t - 1] if t - 1 >= 0 else 0
+        t2 = sequence[t - 2] if t - 2 >= 0 else 0
+        return (t2 * 14918087 * 18408749 + t1 * 14918087) % buckets
 
     def build_set(dl):
         contents = []
@@ -136,7 +158,7 @@ def build_dataset(config, ticker = ''):
                 content = row.title
 
             words_line = []
-            token = tokenizer(content)
+            token = nltk.tokenize.word_tokenize(content)
             seq_len = len(token)
 
             if pad_size:
@@ -148,13 +170,27 @@ def build_dataset(config, ticker = ''):
 
             for word in token:
                 words_line.append(vocab.get(word, vocab.get(UNK)))
-            contents.append((words_line, int(label), seq_len)) #, row.date
+
+            if config.model_name == 'FastText':
+                buckets = config.n_gram_vocab
+                bigram = []
+                trigram = []
+                # ------ngram------
+                for i in range(pad_size):
+                    bigram.append(biGramHash(words_line, i, buckets))
+                    trigram.append(triGramHash(words_line, i, buckets))
+                # -----------------
+                contents.append((words_line, int(label), seq_len, bigram, trigram))
+            else:
+                contents.append((words_line, int(label), seq_len)) #, row.date
+
         return contents
 
     return vocab, build_set(df), build_set(df_20), build_set(df_test)
 
 class DatasetIterater(object):
-    def __init__(self, batches, batch_size, device):
+    FastText = False
+    def __init__(self, batches, batch_size, device, fasttext = False):
         self.batch_size = batch_size
         self.batches = batches
         self.n_batches = len(batches) // batch_size
@@ -164,15 +200,22 @@ class DatasetIterater(object):
         self.index = 0
         self.device = device
         self.oindex = 0
+        self.fasttext = fasttext
 
     def _to_tensor(self, datas):
         try:
             x = torch.LongTensor([_[0] for _ in datas]).to(self.device)
             y = torch.LongTensor([_[1] for _ in datas]).to(self.device)
-
-            # pad前的长度(超过pad_size的设为pad_size)
             seq_len = torch.LongTensor([_[2] for _ in datas]).to(self.device)
-            return (x, seq_len), y
+
+            if self.fasttext:
+                bigram = torch.LongTensor([_[3] for _ in datas]).to(self.device)
+                trigram = torch.LongTensor([_[4] for _ in datas]).to(self.device)
+                return (x, seq_len, bigram, trigram), y
+
+            else:
+                return (x, seq_len), y
+
         except Exception as e:
             print(datas)
             raise e
@@ -213,7 +256,10 @@ class DatasetIterater(object):
 
 
 def build_iterator(dataset, config):
-    iter = DatasetIterater(dataset, config.batch_size, config.device)
+    if config.model_name == 'FastText':
+        iter = DatasetIterater(dataset, config.batch_size, config.device, True)
+    else :
+        iter = DatasetIterater(dataset, config.batch_size, config.device)
     return iter
 
 
@@ -228,44 +274,40 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Stock News Text Classification Build vocab')
-
     parser.add_argument('-d', '--dataset', type=str, required=True,  help='Dataset Name')
-    parser.add_argument('-c', '--csv', nargs='+', required=True,
-                            help='-c  csv1 csv2 ...')
+    parser.add_argument('-c', '--csv', nargs='+', help='-c  csv1 csv2 ...')
     parser.add_argument('-t', '--use_title', default=0, type=int, help='use content|title to vulid vocab')
     parser.add_argument('-a', '--pad_size', default=500, type=int, help='pad_size')
-    parser.add_argument('-m', '--min_freq', default=1, type=int, help='min_freq')
-
+    parser.add_argument('-m', '--min_freq', default=2, type=int, help='min_freq')
+    parser.add_argument('-r', '--rebuild', default=0, choices=[0,1], type=int, help='1:rebuild')
     args = parser.parse_args()
 
-    dataset = './log/' + args.dataset
-    if os.path.isdir(dataset) == False:
-        os.makedirs(dataset, exist_ok=True)
-
     class Config():
-        vocab_path = './log/'
+        dataset = ''
+        vocab_path = ''
         pad_size = 32
-        predict = 7     # 0|1|7
+        predict = 0
         use_title = 0   # 0|1
         show = True
         min_freq = 2
+        rebuild = True
+
 
     v_config = Config()
 
-    v_config.csv = args.csv
+    if args.csv == None :
+        v_config.csv = ['./data/news_' + args.dataset + '.csv']
+    else :
+        v_config.csv = args.csv
+
+    v_config.dataset = args.dataset
     v_config.use_title = args.use_title
     v_config.pad_size = args.pad_size
     v_config.min_freq = args.min_freq
+    v_config.rebuild = True if args.rebuild == 1 else False
 
-    v_config.vocab_path += args.dataset + '/vocab'
-    v_config.vocab_path += '_ti' if args.use_title == 1 else '_fc'
-    v_config.vocab_path += '_ps' + str(args.pad_size)
-    v_config.vocab_path += '_mf' + str(args.min_freq)
-    v_config.vocab_path += '.pkl'
 
     st = time.time()
-
-    print("save to %s " % v_config.vocab_path )
     build_vocab(v_config)
 
     td = get_time_dif(st)
