@@ -39,7 +39,9 @@ def train(config, model, train_iter, test_iter, test2020_iter):
     flag = False  # 记录是否很久没有效果提升
     writer = SummaryWriter(log_dir=config.log_path + '/' + time.strftime('%m%d_%H.%M', time.localtime()) + config.args )
     for epoch in range(config.num_epochs):
+
         print('Epoch [{}/{}]'.format(epoch + 1, config.num_epochs))
+
         # scheduler.step() # 学习率衰减
         for i, (trains, labels) in enumerate(train_iter):
             outputs = model(trains)
@@ -61,8 +63,10 @@ def train(config, model, train_iter, test_iter, test2020_iter):
                 else:
                     improve = ''
                 time_dif = get_time_dif(start_time)
+
                 msg = 'Iter: {0:>6},  Train Loss: {1:>5.2},  Train Acc: {2:>6.2%},  Val Loss: {3:>5.2},  Val Acc: {4:>6.2%},  Time: {5} {6}'
                 print(msg.format(total_batch, loss.item(), train_acc, dev_loss, dev_acc, time_dif, improve))
+
                 writer.add_scalar("loss/train", loss.item(), total_batch)
                 writer.add_scalar("loss/dev", dev_loss, total_batch)
                 writer.add_scalar("acc/train", train_acc, total_batch)
@@ -89,12 +93,14 @@ def test(config, model, test_iter):
     model.eval()
     start_time = time.time()
     test_acc, test_loss, test_report, test_confusion = evaluate(config, model, test_iter, test=True)
+
     msg = 'Test Loss: {0:>5.2},  Test Acc: {1:>6.2%}'
     print(msg.format(test_loss, test_acc))
     print("Precision, Recall and F1-Score...")
     print(test_report)
     print("Confusion Matrix...")
     print(test_confusion)
+
     time_dif = get_time_dif(start_time)
     print("Test Time usage:", time_dif)
 

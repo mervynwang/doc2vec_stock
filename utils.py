@@ -8,6 +8,7 @@ import time
 from datetime import timedelta
 import pandas as pd
 
+pd.options.mode.chained_assignment = None
 
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
@@ -68,7 +69,7 @@ def fetch_data(config, test = False ,ticker = ''):
 
     return df_main, df_2020, df_test
 
-def build_vocab(config):
+def build_vocab(config, showv = False):
     """
         build vocab
         @param object {vocab_path, rebuild, show, use_title, min_freq }
@@ -85,13 +86,13 @@ def build_vocab(config):
 
     if os.path.exists(config.vocab_path) and config.rebuild == False:
         vocab_dic = pkl.load(open(config.vocab_path, 'rb'))
-        if config.show :
+        if showv :
             print(vocab_dic)
         print(f"Vocab size: {len(vocab_dic)}")
         return vocab_dic
     else:
         vocab_dic = {}
-        print("rebuild")
+        # print("rebuild")
 
     rows_len = []
     max_len = 0
@@ -126,7 +127,10 @@ def build_vocab(config):
     if config.show == True:
         avg = sum(rows_len) / len(rows_len)
         med = np.median(rows_len)
-        print(" max_len : %d , avg : %d, median %d" % (max_len, avg, med) )
+        print("max_len : %d , avg : %d, median %d" % (max_len, avg, med) )
+        print(f"Vocab size: {len(vocab_dic)}")
+
+    if showv :
         print(vocab_dic)
 
     return vocab_dic
@@ -254,7 +258,6 @@ class DatasetIterater(object):
         else:
             return self.n_batches
 
-
 def build_iterator(dataset, config):
     if config.model_name == 'FastText':
         iter = DatasetIterater(dataset, config.batch_size, config.device, True)
@@ -262,9 +265,7 @@ def build_iterator(dataset, config):
         iter = DatasetIterater(dataset, config.batch_size, config.device)
     return iter
 
-
 def get_time_dif(start_time):
-    """获取已使用时间"""
     end_time = time.time()
     time_dif = end_time - start_time
     return timedelta(seconds=int(round(time_dif)))
@@ -278,8 +279,11 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--csv', nargs='+', help='-c  csv1 csv2 ...')
     parser.add_argument('-t', '--use_title', default=0, type=int, help='use content|title to vulid vocab')
     parser.add_argument('-a', '--pad_size', default=500, type=int, help='pad_size')
-    parser.add_argument('-m', '--min_freq', default=2, type=int, help='min_freq')
-    parser.add_argument('-r', '--rebuild', default=0, choices=[0,1], type=int, help='1:rebuild')
+    parser.add_argument('-m', '--min_freq', default=5, type=int, help='min_freq')
+    parser.add_argument('-r', '--rebuild', default=1, choices=[0,1], type=int, help='1:rebuild')
+    parser.add_argument('-s', '--show', default=1, choices=[0,1], type=int, help='1:show news info len avg median')
+
+    parser.add_argument('-v', '--vocab_info', default=0, choices=[0,1], type=int, help='1:show vocab list')
     args = parser.parse_args()
 
     class Config():
@@ -305,10 +309,10 @@ if __name__ == "__main__":
     v_config.pad_size = args.pad_size
     v_config.min_freq = args.min_freq
     v_config.rebuild = True if args.rebuild == 1 else False
-
+    v_config.show = True if args.show == 1 else False
 
     st = time.time()
-    build_vocab(v_config)
+    build_vocab(v_config, args.vocab_info)
 
     td = get_time_dif(st)
     print("Build time :", td)

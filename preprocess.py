@@ -287,7 +287,6 @@ class preProcess(object):
 		cloud.to_file(self.model)
 
 
-
 	def bow(self):
 		self.open_folder()
 		if self.useTitle:

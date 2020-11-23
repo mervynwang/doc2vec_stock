@@ -12,6 +12,8 @@ from utils import build_dataset, build_iterator, get_time_dif
 parser = argparse.ArgumentParser(description='Stock News Text Classification')
 
 parser.add_argument('-d', '--dataset', type=str, required=True,  help='Dataset Name')
+parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
+
 parser.add_argument('-c', '--csv', nargs='+',  help='-c  csv1 csv2 ...')
 parser.add_argument('-p', '--predict', default=7, type=int, choices=[1, 7, 30], help='1 | 7 | 30')
 parser.add_argument('-t', '--use_title', default=0, type=int, help='use title to train')
@@ -20,9 +22,9 @@ parser.add_argument('-m', '--min_freq', default=5, type=int, help='min_freq')
 parser.add_argument('-v', '--vocab', default='', type=str, help='vocab pkl')
 parser.add_argument('-e', '--embedding', default='', type=str, help='random or pre_trained')
 parser.add_argument('-n', '--emb_type', default=1, choices=[1, 2, 3, 4], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy 4: random')
-parser.add_argument('-b', '--batch_size', default=10, type=int, help='batch_size')
+parser.add_argument('-b', '--batch_size', default=128, type=int, help='batch_size, note batch_size too small DPCNN cant work ')
 parser.add_argument('--ticker', type=str, default='', choices=['google','tesla', 'amd', 'biogen'], help='ticker')
-parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
+
 args = parser.parse_args()
 
 
@@ -81,26 +83,24 @@ if __name__ == '__main__':
 
     config.dataset = args.dataset
     config.predict = args.predict
+
     config.use_title = args.use_title
     config.pad_size = args.pad_size
     config.min_freq = args.min_freq
+    config.rebuild = False
+    config.show = False
 
     config.args += "_" + str(args.predict)
     config.args += "_ps" + str(args.pad_size)
     config.args += "_mf" + str(args.min_freq)
+    config.args += "_b"  + str(args.batch_size)
     config.save_path = config.save_path.replace('.c', config.args +'.c')
 
-    config.rebuild = False
-    config.show = False
 
-    if args.batch_size > 1 :
-        config.batch_size = args.batch_size
-
-
-    np.random.seed(1)
-    torch.manual_seed(1)
-    torch.cuda.manual_seed_all(1)
-    torch.backends.cudnn.deterministic = True  # 保证每次结果一样
+    # np.random.seed(1)
+    # torch.manual_seed(1)
+    # torch.cuda.manual_seed_all(1)
+    # torch.backends.cudnn.deterministic = True  # 保证每次结果一样
 
     start_time = time.time()
     print("Loading data...")

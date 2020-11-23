@@ -1,6 +1,8 @@
 data/**
 tmp/**
 result/**
+vecs/**
+log/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
