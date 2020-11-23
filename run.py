@@ -11,7 +11,7 @@ from utils import build_dataset, build_iterator, get_time_dif
 
 parser = argparse.ArgumentParser(description='Stock News Text Classification')
 
-parser.add_argument('-d', '--dataset', type=str, required=True,  help='Dataset Name')
+parser.add_argument('-d', '--dataset', type=str, required=True, choices=['usat', 'ft', 'wsj', 'all'], help='Dataset Name')
 parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
 
 parser.add_argument('-c', '--csv', nargs='+',  help='-c  csv1 csv2 ...')
@@ -77,7 +77,10 @@ if __name__ == '__main__':
         if config.embedding_pretrained is not None else 300           # 字向量维度
 
     if args.csv == None :
-        config.csv = ['./data/news_' + args.dataset + '.csv']
+        if args.dataset == 'all':
+            config.csv = ['./data/news_ft.csv', './data/news_usat.csv', './data/news_wsj.csv']
+        else:
+            config.csv = ['./data/news_' + args.dataset + '.csv']
     else :
         config.csv = args.csv
 
