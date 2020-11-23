@@ -26,7 +26,7 @@ def init_network(model, method='xavier', exclude='embedding', seed=123):
                 pass
 
 
-def train(config, model, train_iter):
+def train(config, model, train_iter, test_iter, test2020_iter):
     start_time = time.time()
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -78,7 +78,9 @@ def train(config, model, train_iter):
             break
     writer.close()
 
-    test(config, model, train_iter)
+    test(config, model, test_iter)
+    print("Test Data From 2020")
+    test(config, model, test2020_iter)
 
 
 def test(config, model, test_iter):
@@ -103,7 +105,9 @@ def evaluate(config, model, data_iter, test=False, dev=False):
     predict_all = np.array([], dtype=int)
     labels_all = np.array([], dtype=int)
     with torch.no_grad():
-        data_iter.go_next(dev)
+        if test != True:
+            data_iter.go_next(dev)
+
         for texts, labels in data_iter:
             outputs = model(texts)
             loss = F.cross_entropy(outputs, labels)
@@ -113,7 +117,8 @@ def evaluate(config, model, data_iter, test=False, dev=False):
             labels_all = np.append(labels_all, labels)
             predict_all = np.append(predict_all, predic)
 
-        data_iter.go_prev()
+        if test != True:
+            data_iter.go_prev()
 
     acc = metrics.accuracy_score(labels_all, predict_all)
     if test:

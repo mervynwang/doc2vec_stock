@@ -11,13 +11,14 @@ import pandas as pd
 
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
+tokenizer = lambda x: x.split(' ')
 
-def build_dataset(config, ticker = '',show = False):
-
-    pad_size = config.pad_size
-    vocab_dic = {}
-    vocab_build = True
-    contents = []
+def fetch_data(config, test = False ,ticker = ''):
+    """
+        @param object  config  Config
+        @param boolean test,   create test set
+        @param string  ticker,  select ticker only
+    """
     cols = [ 'source', 'date', 'ticker',
                 'title', 'content_fp', '0dr',
                 '1dr', '7dr', '30dr',
@@ -25,15 +26,8 @@ def build_dataset(config, ticker = '',show = False):
                 '1dt', '7dt', '30dt']
 
     start_date = '2013-01-01'
-    end_date = '2019-12-30'
+    end_date = '2019-12-31'
     li = []
-    tokenizer = lambda x: x.split(' ')
-    rows_len = []
-
-    if os.path.exists(config.vocab_path) and show == False:
-        vocab_dic = pkl.load(open(config.vocab_path, 'rb'))
-        vocab_build = False
-        print(f"Vocab size: {len(vocab_dic)}")
 
     for csvfn in config.csv:
         df = pd.read_csv(csvfn, index_col=None, header=0)
@@ -44,14 +38,6 @@ def build_dataset(config, ticker = '',show = False):
     li = None
 
     df = frame[cols]
-    df.set_index('date')
-    mask = (df['date'] > start_date) & (df['date'] <= end_date)
-    df = df.loc[mask]
-    if ticker != '':
-        df = df[ticker = ticker]
-
-    df.sort_values(by='date', inplace=True, ascending=True)
-
     use_tag = ''
     if config.predict == 1:
         use_tag = '1dt'
@@ -60,11 +46,43 @@ def build_dataset(config, ticker = '',show = False):
     else:
         use_tag = '30dt'
 
-    df = df.loc[:, ['date', 'title', 'content_fp', use_tag]]
+    df = df.loc[:, ['date', 'title', 'ticker', 'content_fp', use_tag]]
+
+    df.set_index('date')
+    mask = (df['date'] > start_date) & (df['date'] < end_date)
+    mask2 = (df['date'] > end_date)
+    df_main = df.loc[mask]
+    df_2020 = df.loc[mask2]
+    if ticker != '':
+        df_main = df_main.loc[df_main['ticker'] == ticker]
+        df_2020 = df_2020.loc[df_2020['ticker'] == ticker]
+
+    df_main.sort_values(by='date', inplace=True, ascending=True)
+    df_test = [] if test != True else df_main.sample(frac=0.1).copy(deep = True)
+
+    if test == True :
+        drop_index = []
+        for row in df_test.itertuples():
+            drop_index.append(row.Index)
+        df_main = df_main.drop(drop_index)
+
+    return df_main, df_2020, df_test
+
+def build_vocab(config):
+    """
+        build vocab
+        @param object {vocab_path, rebuild, show, use_title, min_freq }
+    """
+
+    if os.path.exists(config.vocab_path) and config.rebuild == False:
+        vocab_dic = pkl.load(open(config.vocab_path, 'rb'))
+        vocab_build = False
+        print(f"Vocab size: {len(vocab_dic)}")
+        return vocab_dic
+
+    rows_len = []
     max_len = 0
-
-
-
+    df, _, _ = fetch_data(config)
 
     for row in df.itertuples():
         label = row._4
@@ -77,58 +95,63 @@ def build_dataset(config, ticker = '',show = False):
         clen = len(content)
         if clen > max_len:
             max_len = clen
-        if show == True:
+
+        if config.show == True:
             rows_len.append(clen)
 
         words_line = []
         token = tokenizer(content)
         seq_len = len(token)
 
-        if vocab_build == False:
-            if pad_size:
-                if len(token) < pad_size:
-                    token.extend([PAD] * (pad_size - len(token)))
-                else:
-                    token = token[:pad_size]
-                    seq_len = pad_size
+        for word in token:
+            vocab_dic[word] = vocab_dic.get(word, 0) + 1
+        vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= config.min_freq], key=lambda x: x[1], reverse=True)[:MAX_VOCAB_SIZE]
+        vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
+        vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
 
-            for word in token:
-                words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
-            contents.append((words_line, int(label), seq_len)) #, row.date
+        pkl.dump(vocab_dic, open(config.vocab_path, 'wb'))
 
-        else:
-
-            for word in token:
-                vocab_dic[word] = vocab_dic.get(word, 0) + 1
-            vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= config.min_freq], key=lambda x: x[1], reverse=True)[:MAX_VOCAB_SIZE]
-            vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
-            vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
-
-            if pad_size:
-                if len(token) < pad_size:
-                    token.extend([PAD] * (pad_size - len(token)))
-                else:
-                    token = token[:pad_size]
-                    seq_len = pad_size
-
-            for word in token:
-                contents.append((token, int(label), seq_len)) #, row.date
-
-            pkl.dump(vocab_dic, open(config.vocab_path, 'wb'))
-
-            for idx, node in enumerate(contents):
-                words_line = []
-                for word in node[0]:
-                    words_line.append(vocab_dic.get(word, vocab_dic.get(UNK)))
-                contents[idx] = (words_line, node[1], node[2]) #node[3]
-
-    if show == True:
+    if config.show == True:
         avg = sum(rows_len) / len(rows_len)
         med = np.median(rows_len)
         print(" max_len : %d , avg : %d, median %d" % (max_len, avg, med) )
 
-    return vocab_dic, contents
+    return vocab_dic
 
+def build_dataset(config, ticker = ''):
+
+    pad_size = config.pad_size
+    vocab = build_vocab(config)
+    df, df_20, df_test =  fetch_data(config, ticker=ticker, test = True)
+
+    def build_set(dl):
+        contents = []
+        for row in dl.itertuples():
+            label = row._5
+            content = ''
+            if config.use_title == 0 :
+                with open(row.content_fp, 'r', encoding='UTF-8') as f:
+                    content = f.read().lower()
+            else:
+                content = row.title
+
+            words_line = []
+            token = tokenizer(content)
+            seq_len = len(token)
+
+            if pad_size:
+                if len(token) < pad_size:
+                    token.extend([PAD] * (pad_size - len(token)))
+                else:
+                    token = token[:pad_size]
+                    seq_len = pad_size
+
+            for word in token:
+                words_line.append(vocab.get(word, vocab.get(UNK)))
+            contents.append((words_line, int(label), seq_len)) #, row.date
+        return contents
+
+    return vocab, build_set(df), build_set(df_20), build_set(df_test)
 
 class DatasetIterater(object):
     def __init__(self, batches, batch_size, device):
@@ -222,26 +245,28 @@ if __name__ == "__main__":
     class Config():
         vocab_path = './log/'
         pad_size = 32
-        predict = 1     # 0|1|7
-        use_title = 1   # 0|1
-
+        predict = 7     # 0|1|7
+        use_title = 0   # 0|1
+        show = True
+        min_freq = 2
 
     v_config = Config()
-    v_config.vocab_path += args.dataset + '/vocab'
-
-    if args.use_title == 1:
-        v_config.vocab_path += '_ti'
-    else:
-        v_config.vocab_path += '_fc'
 
     v_config.csv = args.csv
     v_config.use_title = args.use_title
     v_config.pad_size = args.pad_size
     v_config.min_freq = args.min_freq
 
+    v_config.vocab_path += args.dataset + '/vocab'
+    v_config.vocab_path += '_ti' if args.use_title == 1 else '_fc'
     v_config.vocab_path += '_ps' + str(args.pad_size)
     v_config.vocab_path += '_mf' + str(args.min_freq)
     v_config.vocab_path += '.pkl'
 
+    st = time.time()
+
     print("save to %s " % v_config.vocab_path )
-    build_dataset(v_config, True)
+    build_vocab(v_config)
+
+    td = get_time_dif(st)
+    print("Build time :", td)

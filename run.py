@@ -83,6 +83,8 @@ if __name__ == '__main__':
     config.min_freq = args.min_freq
     config.args += "_ps" + str(args.pad_size)
     config.args += "_mf" + str(args.min_freq)
+    config.rebuild = False
+    config.show = False
 
     if args.batch_size > 1 :
         config.batch_size = args.batch_size
@@ -99,8 +101,10 @@ if __name__ == '__main__':
 
     start_time = time.time()
     print("Loading data...")
-    vocab, train_data = build_dataset(config, args.ticker)
+    vocab, train_data, test_2020_data, test_data = build_dataset(config, args.ticker)
     train_iter = build_iterator(train_data, config)
+    test_2020_iter = build_iterator(test_2020_data, config)
+    test_iter = build_iterator(test_data, config)
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
 
@@ -110,7 +114,7 @@ if __name__ == '__main__':
     if model_name != 'Transformer':
         init_network(model)
     print(model.parameters)
-    train(config, model, train_iter)
+    train(config, model, train_iter, test_iter, test_2020_iter)
 
     time_dif = get_time_dif(start_time)
     print("Total Time usage:", time_dif)
