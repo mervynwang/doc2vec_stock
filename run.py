@@ -1,5 +1,6 @@
 # coding: UTF-8
-import time, os
+import time, os, time
+import json
 
 import torch, gensim
 import numpy as np
@@ -9,20 +10,32 @@ from importlib import import_module
 import argparse
 from utils import build_dataset, build_iterator, get_time_dif
 
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
 parser = argparse.ArgumentParser(description='Stock News Text Classification')
 
 parser.add_argument('-d', '--dataset', type=str, required=True, choices=['usat', 'ft', 'wsj', 'all'], help='Dataset Name')
 parser.add_argument('--model', type=str, required=True, help='choose a model: TextCNN, TextRNN, FastText, TextRCNN, TextRNN_Att, DPCNN, Transformer')
 
 parser.add_argument('-c', '--csv', nargs='+',  help='-c  csv1 csv2 ...')
-parser.add_argument('-p', '--predict', default=7, type=int, choices=[1, 7, 30], help='1 | 7 | 30')
-parser.add_argument('-t', '--use_title', default=0, type=int, help='use title to train')
-parser.add_argument('-a', '--pad_size', default=32, type=int, help='pad_size')
-parser.add_argument('-m', '--min_freq', default=5, type=int, help='min_freq')
-parser.add_argument('-v', '--vocab', default='', type=str, help='vocab pkl')
+parser.add_argument('-p', '--predict',   default=7,  type=int, choices=[1, 7, 30], help='1 | 7 | 30')
+parser.add_argument('-t', '--use_title', default=0,  type=int, help='use title to train')
+parser.add_argument('-a', '--pad_size',  default=32, type=int, help='pad_size')
+parser.add_argument('-m', '--min_freq',  default=5,  type=int, help='min_freq')
+parser.add_argument('-v', '--vocab',     default='', type=str, help='vocab pkl')
 parser.add_argument('-e', '--embedding', default='', type=str, help='random or pre_trained')
-parser.add_argument('-n', '--emb_type', default=1, choices=[1, 2, 3, 4], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy 4: random')
+parser.add_argument('-n', '--emb_type',  default=1,  choices=[1, 2, 3, 4], type=int, help='1:genism.word2vec, 2:genism.doc2vec, 3:npy 4: random')
 parser.add_argument('-b', '--batch_size', default=128, type=int, help='batch_size, note batch_size too small DPCNN cant work ')
+
 parser.add_argument('--ticker', type=str, default='', choices=['google','tesla', 'amd', 'biogen'], help='ticker')
 
 args = parser.parse_args()
@@ -74,7 +87,7 @@ if __name__ == '__main__':
         config.args += "_a"
 
     config.embed = config.embedding_pretrained.size(1)\
-        if config.embedding_pretrained is not None else 300           # 字向量维度
+        if config.embedding_pretrained is not None else 300
 
     if args.csv == None :
         if args.dataset == 'all':
@@ -114,16 +127,27 @@ if __name__ == '__main__':
     train_iter = build_iterator(train_data, config)
     test_2020_iter = build_iterator(test_2020_data, config)
     test_iter = build_iterator(test_data, config)
-    time_dif = get_time_dif(start_time)
-    print("Time usage:", time_dif)
+    data_prepare_time = get_time_dif(start_time)
+
+
+    print("Time usage:", data_prepare_time)
 
     # train
     config.n_vocab = len(vocab)
     model = x.Model(config).to(config.device)
     if model_name != 'Transformer':
         init_network(model)
-    print(model.parameters)
-    train(config, model, train_iter, test_iter, test_2020_iter)
 
+    print(model.parameters)
+    log = train(config, model, train_iter, test_iter, test_2020_iter)
     time_dif = get_time_dif(start_time)
     print("Total Time usage:", time_dif)
+
+    log.append({"total":len(train_data) ,'2020':len(test_2020_data) , 'testset':len(test_data) })
+    log.append({'TotalTimeUsage': str(time_dif)})
+    logfile = config.save_path.replace('ckpt', time.strftime('%d_%H%M', time.localtime())+ '.log').replace('/saved_dict', '')
+
+    print("logfile %s" % logfile)
+    with open(logfile, 'w') as outfile:
+        json.dump(log, outfile, cls=NumpyEncoder)
+

@@ -28,6 +28,7 @@ def init_network(model, method='xavier', exclude='embedding', seed=123):
 
 def train(config, model, train_iter, test_iter, test2020_iter):
     start_time = time.time()
+    log = []
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
@@ -66,7 +67,15 @@ def train(config, model, train_iter, test_iter, test2020_iter):
 
                 msg = 'Iter: {0:>6},  Train Loss: {1:>5.2},  Train Acc: {2:>6.2%},  Val Loss: {3:>5.2},  Val Acc: {4:>6.2%},  Time: {5} {6}'
                 print(msg.format(total_batch, loss.item(), train_acc, dev_loss, dev_acc, time_dif, improve))
-
+                log.append({
+                    'i':total_batch,
+                    'TrainLoss': str(loss.item()),
+                    'TrainAcc': str(train_acc),
+                    'ValLoss': str(dev_loss),
+                    'ValAcc': str(dev_acc),
+                    'Time' : str(time_dif),
+                    'improve': improve
+                    })
                 writer.add_scalar("loss/train", loss.item(), total_batch)
                 writer.add_scalar("loss/dev", dev_loss, total_batch)
                 writer.add_scalar("acc/train", train_acc, total_batch)
@@ -82,9 +91,15 @@ def train(config, model, train_iter, test_iter, test2020_iter):
             break
     writer.close()
 
-    test(config, model, test_iter)
+    report = test(config, model, test_iter)
+    log.append(report)
     print("Test Data From 2020")
-    test(config, model, test2020_iter)
+
+    report = test(config, model, test2020_iter)
+
+    report['tag'] = '2020'
+    log.append(report)
+    return log
 
 
 def test(config, model, test_iter):
@@ -103,6 +118,7 @@ def test(config, model, test_iter):
 
     time_dif = get_time_dif(start_time)
     print("Test Time usage:", time_dif)
+    return {"TestLoss": str(test_loss), "TestAcc": str(test_acc), "Report":test_report, "ConfusionMatrix":test_confusion}
 
 
 def evaluate(config, model, data_iter, test=False, dev=False):
