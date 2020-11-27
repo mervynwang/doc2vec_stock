@@ -153,7 +153,18 @@ def build_dataset(config, ticker = ''):
     def build_set(dl):
         contents = []
         for row in dl.itertuples():
-            label = row._5
+            label = ''
+
+            if config.num_classes == 3:
+                if row._5 == 1 or row._5 == 2:
+                    label = 0
+                elif row._5 == 4 or row._5 == 5:
+                    label = 2
+                else:
+                    label = 1
+            else:
+                label = row._5
+
             content = ''
             if config.use_title == 0 :
                 with open(row.content_fp, 'r', encoding='UTF-8') as f:

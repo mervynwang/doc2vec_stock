@@ -29,6 +29,7 @@ parser.add_argument('--model', type=str, required=True, help='choose a model: Te
 parser.add_argument('-c', '--csv', nargs='+',  help='-c  csv1 csv2 ...')
 parser.add_argument('-p', '--predict',   default=7,  type=int, choices=[1, 7, 30], help='1 | 7 | 30')
 parser.add_argument('-t', '--use_title', default=0,  type=int, help='use title to train')
+parser.add_argument('-l', '--classNu',   default=5,  type=int, choices=[3, 5], help='in class5 or class3')
 parser.add_argument('-a', '--pad_size',  default=32, type=int, help='pad_size')
 parser.add_argument('-m', '--min_freq',  default=5,  type=int, help='min_freq')
 parser.add_argument('-v', '--vocab',     default='', type=str, help='vocab pkl')
@@ -105,11 +106,17 @@ if __name__ == '__main__':
     config.min_freq = args.min_freq
     config.rebuild = False
     config.show = False
+    config.classNu = args.classNu
+
+    if args.classNu == 3 :
+        config.num_classes = 3
+        config.class_list = ['Pessimistic', 'Neutral' ,'Optimism']
 
     config.args += "_" + str(args.predict)
     config.args += "_ps" + str(args.pad_size)
     config.args += "_mf" + str(args.min_freq)
     config.args += "_b"  + str(args.batch_size)
+    config.args += "_i"  + str(args.classNu)
     config.save_path = config.save_path.replace('.c', config.args +'.c')
 
 
