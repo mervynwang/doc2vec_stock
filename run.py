@@ -136,8 +136,8 @@ if __name__ == '__main__':
     test_iter = build_iterator(test_data, config)
     data_prepare_time = get_time_dif(start_time)
 
-
     print("Time usage:", data_prepare_time)
+    # exit()
 
     # train
     config.n_vocab = len(vocab)

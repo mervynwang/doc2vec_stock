@@ -1,5 +1,5 @@
 # coding: UTF-8
-import os
+import os, math
 import torch, nltk
 import numpy as np
 import pickle as pkl
@@ -10,7 +10,7 @@ import pandas as pd
 
 pd.options.mode.chained_assignment = None
 
-MAX_VOCAB_SIZE = 10000  # 词表长度限制
+MAX_VOCAB_SIZE = 40000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
 # tokenizer = lambda x: x.split(' ')
 
@@ -150,9 +150,33 @@ def build_dataset(config, ticker = ''):
         t2 = sequence[t - 2] if t - 2 >= 0 else 0
         return (t2 * 14918087 * 18408749 + t1 * 14918087) % buckets
 
+    def sub_vocab(token, seq_len, label):
+        words_line = []
+        for word in token:
+            words_line.append(vocab.get(word, vocab.get(UNK)))
+
+        if config.model_name == 'FastText':
+            buckets = config.n_gram_vocab
+            bigram = []
+            trigram = []
+            # ------ngram------
+            for i in range(pad_size):
+                bigram.append(biGramHash(words_line, i, buckets))
+                trigram.append(triGramHash(words_line, i, buckets))
+            # -----------------
+            return (words_line, int(label), seq_len, bigram, trigram)
+        else:
+            return (words_line, int(label), seq_len)
+
     def build_set(dl):
         contents = []
+
+        token_len = []
+        max_len = 0
+        counter = 0
+
         for row in dl.itertuples():
+            counter += 1
             label = ''
 
             if config.num_classes == 3:
@@ -172,32 +196,40 @@ def build_dataset(config, ticker = ''):
             else:
                 content = row.title
 
-            words_line = []
+
             token = nltk.tokenize.word_tokenize(content)
             seq_len = len(token)
 
-            if pad_size:
-                if len(token) < pad_size:
-                    token.extend([PAD] * (pad_size - len(token)))
-                else:
-                    token = token[:pad_size]
+            clen = len(token)
+            if clen > max_len:
+                max_len = clen
+            token_len.append(clen)
+
+            if pad_size and len(token) < pad_size:
+                token.extend([PAD] * (pad_size - len(token)))
+
+
+            if (clen / pad_size) < 1.2 :
+                token = token[:pad_size]
+                seq_len = pad_size
+                contents.append(sub_vocab(token, seq_len, label))
+            else :
+                for i in range(1, math.floor(clen / pad_size)):
+                    start = (i-1) * pad_size
+                    end = i * pad_size
+                    if end > clen:
+                        start = start - (end - clen)
+                        end = clen
+
+                    tmp_token = token[start:end]
                     seq_len = pad_size
 
-            for word in token:
-                words_line.append(vocab.get(word, vocab.get(UNK)))
+                    # print("total %d, i:%d,  start %d, end %d fetch %d" % (clen, i, start, end, len(tmp_token) ))
+                    contents.append(sub_vocab(tmp_token, seq_len, label))
 
-            if config.model_name == 'FastText':
-                buckets = config.n_gram_vocab
-                bigram = []
-                trigram = []
-                # ------ngram------
-                for i in range(pad_size):
-                    bigram.append(biGramHash(words_line, i, buckets))
-                    trigram.append(triGramHash(words_line, i, buckets))
-                # -----------------
-                contents.append((words_line, int(label), seq_len, bigram, trigram))
-            else:
-                contents.append((words_line, int(label), seq_len)) #, row.date
+        avg = sum(token_len) / len(token_len)
+        med = np.median(token_len)
+        print("total row %d; word vocab, max_len : %d , avg : %d, median %d to total %d" % (counter, max_len, avg, med, len(contents)) )
 
         return contents
 
