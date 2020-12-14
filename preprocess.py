@@ -74,6 +74,9 @@ class preProcess(object):
 		parser.add_argument('-t', '--stop', nargs='+',
 			help='stop words ')
 
+		parser.add_argument('-o', '--use_stopword', default=False, type=self.str2bool,
+			help='doc2vec use stopword')
+
 		parser.add_argument('processor',
 			choices=['word2vec', 'doc2vec', 'bow', 'wordcloud', 'bar', 'bar_ym', 'sort'],
 			help='main function')
@@ -371,13 +374,14 @@ class preProcess(object):
 				content = re.sub(r'([a-zA-Z]{2,})[\.\?\!]\s?', r'\1 \n', content)
 				for i, line in enumerate(content.splitlines(True)):
 					words = nltk.tokenize.word_tokenize(line.strip())
-					# if len(words) == 0:
-					# 	continue;
+					if self.use_stopword:
+						filtered_words = [word for word in words if word not in self.stopwords]
+						words = filtered_words
 					self.tagged_data.append(gensim.models.doc2vec.TaggedDocument(words=words, tags=[news_fn + "_" +  str(i)] ))
 
 		return self
 
-	def train_doc2vec(self, max_epochs=15, vec_size=200, alpha=0.025):
+	def train_doc2vec(self, max_epochs=15, vec_size=500, alpha=0.025):
 		"""
 		Training our doc2vec model. The articles will be vectorized in a 200 dimensions vector space
 		:param max_epochs: Sets the number of epochs in our training
@@ -385,7 +389,7 @@ class preProcess(object):
 		:param alpha: Learning rate used in the gradient descent
 		:return:
 		"""
-		model = gensim.models.doc2vec.Doc2Vec(vector_size=vec_size, alpha=alpha, min_alpha=0.025, min_count=5,
+		model = gensim.models.doc2vec.Doc2Vec(vector_size=vec_size, alpha=alpha, min_alpha=0.015, min_count=2,
 						dm=1, workers=30)
 
 		print("total len %s" % len(self.tagged_data))

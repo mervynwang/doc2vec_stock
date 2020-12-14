@@ -119,6 +119,8 @@ if __name__ == '__main__':
     config.args += "_i"  + str(args.classNu)
     config.save_path = config.save_path.replace('.c', config.args +'.c')
 
+    print("\n\n--------\n%s" % config.args)
+
 
     # np.random.seed(1)
     # torch.manual_seed(1)
