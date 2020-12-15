@@ -1,5 +1,5 @@
 # coding: UTF-8
-import time, os, time
+import time, os, time, sys
 import json
 
 import torch, gensim
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     config.args += "_i"  + str(args.classNu)
     config.save_path = config.save_path.replace('.c', config.args +'.c')
 
-    print("\n\n--------\n%s" % config.args)
+    print("\n\n--------\n%s" % (' '.join(sys.argv)) )
 
 
     # np.random.seed(1)
@@ -152,8 +152,12 @@ if __name__ == '__main__':
     time_dif = get_time_dif(start_time)
     print("Total Time usage:", time_dif)
 
+    log.append({"argv" : ' '.join(sys.argv[1:]) })
     log.append({"total":len(train_data) ,'2020':len(test_2020_data) , 'testset':len(test_data) })
     log.append({'TotalTimeUsage': str(time_dif)})
+    log.append({'dataset': args.dataset })
+    log.append({'model': args.model })
+    log.append({'start_at': str(start_time) })
     logfile = config.save_path.replace('ckpt', time.strftime('%d_%H%M', time.localtime())+ '.log').replace('/saved_dict', '')
 
     print("logfile %s" % logfile)
