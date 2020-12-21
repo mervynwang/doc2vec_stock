@@ -357,7 +357,7 @@ class preProcess(object):
 
 	def train_word2vec(self):
 
-		model = gensim.models.Word2Vec(self.tagged_data, min_count=1)
+		model = gensim.models.Word2Vec(self.tagged_data, vector_size=500, epochs=15, min_count=2)
 		model.save(self.model)
 		print("Model saved")
 
