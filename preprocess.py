@@ -11,6 +11,9 @@ from sklearn.feature_extraction.text import CountVectorizer  # bow
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
+from gensim.models.word2vec import Word2Vec
+
+
 # svm bayes
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import train_test_split
@@ -357,7 +360,7 @@ class preProcess(object):
 
 	def train_word2vec(self):
 
-		model = gensim.models.Word2Vec(self.tagged_data, vector_size=500, epochs=15, min_count=2)
+		model = Word2Vec(self.tagged_data, size=150, iter=8, min_count=2)
 		model.save(self.model)
 		print("Model saved")
 
@@ -381,7 +384,7 @@ class preProcess(object):
 
 		return self
 
-	def train_doc2vec(self, max_epochs=15, vec_size=500, alpha=0.025):
+	def train_doc2vec(self, max_epochs=8, vec_size=250, alpha=0.025):
 		"""
 		Training our doc2vec model. The articles will be vectorized in a 200 dimensions vector space
 		:param max_epochs: Sets the number of epochs in our training
