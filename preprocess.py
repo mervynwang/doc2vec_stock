@@ -360,7 +360,7 @@ class preProcess(object):
 
 	def train_word2vec(self):
 
-		model = Word2Vec(self.tagged_data, size=150, iter=8, min_count=2)
+		model = Word2Vec(self.tagged_data, size=250, iter=8, min_count=2)
 		model.save(self.model)
 		print("Model saved")
 

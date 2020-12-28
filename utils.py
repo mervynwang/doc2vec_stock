@@ -61,6 +61,8 @@ def fetch_data(config, test = False ,ticker = ''):
     df_main.sort_values(by='date', inplace=True, ascending=True)
     df_test = [] if test != True else df_main.sample(frac=0.1).copy(deep = True)
 
+    # df_2020 = df_2020.sample(frac=0.5)
+
     if test == True :
         drop_index = []
         for row in df_test.itertuples():
