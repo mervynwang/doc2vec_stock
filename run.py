@@ -104,6 +104,7 @@ if __name__ == '__main__':
     config.use_title = args.use_title
     config.pad_size = args.pad_size
     config.min_freq = args.min_freq
+    config.batch_size = args.batch_size
     config.rebuild = False
     config.show = False
     config.classNu = args.classNu
