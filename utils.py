@@ -231,7 +231,7 @@ def build_dataset(config, ticker = ''):
 
         avg = sum(token_len) / len(token_len)
         med = np.median(token_len)
-        print("total row %d; word vocab, max_len : %d , avg : %d, median %d to total %d" % (counter, max_len, avg, med, len(contents)) )
+        print("total row %d; word vocab, max_len : %d , avg : %d, median %d split to %d rows" % (counter, max_len, avg, med, len(contents)) )
 
         return contents
 

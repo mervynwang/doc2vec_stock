@@ -20,21 +20,26 @@ $db = new MyDB();
 $db->exec(
     'CREATE TABLE result (
         ymd STRING,
-        fn  STRING,
-        args  STRING,
         model STRING,
         pre_trained  STRING,
-        vs   STRING,
         input STRING,
         sw INTEGER,
         dataset STRING,
+        batch   INTEGER,
         feq   INTEGER,
-        inClass INTEGER,
         p     INTEGER,
-        TimeUsage STRING,
         acc_2020 REAL,
         acc_val REAL,
-        info STRING
+        info_2020 STRING,
+        report_2020 STRING,
+        info_val STRING,
+        info_rand STRING,
+        report_rand STRING,
+        inClass INTEGER,
+        vs   STRING,
+        TimeUsage STRING,
+        fn  STRING,
+        args  STRING
     )'
 );
 
@@ -53,7 +58,9 @@ foreach ($list as $fn) {
     $dd = date('Y-m-d_H:i:s', filemtime($fn));
 
     $tmp = [];
-    $tmp["info"] = [];
+    $tmp["info_rand"] = [];
+    $tmp["info_2020"] = [];
+    $tmp["info_val"] = [];
     $tmp["dataset"] = $fnp[2]; // all ft usat
     $tmp["input"] = $ffp[2]; // title | arti
     $tmp["p"] = $ffp[3];    // 1 , 7 , 30
@@ -71,6 +78,9 @@ foreach ($list as $fn) {
     $tmp["acc_val"] = 0;
     $tmp['sw'] = 1;
     $tmp['vs'] = 500;
+    $tmp['batch'] = 128;
+    $tmp["report_2020"] = '';
+    $tmp["report_rand"] = '';
 
 
     // echo "\n\n $ds $model : ". date('Y-m-d H:i:s', filemtime($fn)). " \n";
@@ -83,31 +93,43 @@ foreach ($list as $fn) {
             } else {
                 $tmp['sw'] = 1;
             }
+
+            $m = [];
             if(preg_match('/vs(\d+)/', $tmp['args'], $m)) {
                 $tmp['vs'] = $m[1];
+            }
+
+            $m = [];
+            if(preg_match('/-b (\d+)/', $tmp['args'], $m)) {
+                $tmp['batch'] = $m[1];
+            } else {
+                $tmp['batch'] = 128;
             }
         }
 
         if (isset($node["i"])) {
-            $val[] = $node["ValAcc"];
+            $val[] = $node["ValAcc"] ;
         }
         if (isset($node["TotalTimeUsage"])) {
             $tmp["TimeUsage"] = $node["TotalTimeUsage"];
         }
 
         if (isset($node["TestLoss"])) {
-            $tmp2 = "";
+            $tmp2 = [];
             foreach ($node["ConfusionMatrix"] as $row) {
-                $tmp2 .= join(" , ", $row)."\n";
+                $tmp2[] = join(" , ", $row);
             }
             // echo $tmp;
             $node["ConfusionMatrix"] = $tmp2;
 
+
             if (isset($node["tag"])) {
-                $tmp["info"]["Anl2"] = $node;
+                $tmp["info_2020"] = json_encode($node, JSON_PRETTY_PRINT);
                 $tmp["acc_2020"] = $node["TestAcc"]*100;
+                $tmp["report_2020"] = $node["Report"];
             } else {
-                $tmp["info"]["Anl"] = $node;
+                $tmp["info_rand"]= json_encode($node, JSON_PRETTY_PRINT);
+                $tmp["report_rand"] = $node["Report"];
             }
 
         }
@@ -119,30 +141,37 @@ foreach ($list as $fn) {
     }
 
     $tmp["acc_val"] = (array_sum($val)/ count($val) * 100 );
-    $tmp["info"]["batch"] = join(', ', $val);
-    $tmp["info"] = json_encode($tmp["info"]);
+    $tmp["info_val"] = json_encode($val);
 
     // insert;
     $stmt = $db->prepare(
-        "INSERT INTO result (info, dataset, feq, inClass,
-            input, sw, p, fn,
-            ymd, model ,pre_trained ,TimeUsage ,args
-            ,acc_2020 ,acc_val, vs
+        "INSERT INTO result (
+            info_rand, info_2020, info_val,
+            dataset, feq, inClass,
+            input, sw, p, fn, batch,
+            ymd, model ,pre_trained ,TimeUsage ,args,
+            acc_2020 ,acc_val, vs,
+            report_2020, report_rand
             ) VALUES (
-            :info, :dataset, :feq, :inClass,
-            :input, :sw , :p , :fn ,
+            :info_rand, :info_2020, :info_val,
+            :dataset, :feq, :inClass,
+            :input, :sw , :p , :fn, :batch,
             :ymd , :model ,
             :pre_trained ,
             :TimeUsage ,
             :args ,
             :acc_2020 ,
-            :acc_val, :vs
+            :acc_val, :vs,
+            :report_2020, :report_rand
         )"
     );
+
+    $intType = ['p', 'feq', 'inClass', 'sw', 'batch'];
     foreach ($tmp as $key => $value) {
+
         if (strpos($key, 'acc') !== false) {
             $stmt->bindParam(':'. $key, $tmp[$key], SQLITE3_FLOAT);
-        } else if (($key == 'p') || ($key == 'feq') || ($key == 'inClass') || ($key == 'sw') ) {
+        } else if ( in_array($key, $intType) ) {
             $stmt->bindParam(':'. $key, $tmp[$key], SQLITE3_INTEGER);
         } else {
             $stmt->bindParam(':'. $key, $tmp[$key], SQLITE3_TEXT);

@@ -90,3 +90,6 @@ py  preprocess.py bow -p ./data/news_wsj.csv -s ./models/wsj_bow 2>&1 >wsj_bow.l
 py  preprocess.py bar_ym -p ./data/news_ft.csv -s ./result/ft_ym -a 7 &
 py  preprocess.py bar_ym -p ./data/news_usat.csv -s ./result/usat_ym -a 7 &
 py  preprocess.py bar_ym -p ./data/news_wsj.csv -s ./result/wsj_ym  -a 7 &
+
+
+124M Jan  6 12:48 ./log/all/saved_dict/TextRNN_d2v_a_7_ps4500_mf2_b128_i5.ckpt
