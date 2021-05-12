@@ -45,7 +45,11 @@ def train(config, model, train_iter, test_iter, test2020_iter):
 
         # scheduler.step() # 学习率衰减
         for i, (trains, labels) in enumerate(train_iter):
-            outputs = model(trains)
+            try:
+                outputs = model(trains)
+            except Exception as e:
+                print("i %s, data: %o, labels %s" % (i, trains, labels))
+
             model.zero_grad()
             loss = F.cross_entropy(outputs, labels)
             loss.backward()

@@ -29,6 +29,7 @@ parser.add_argument('--model', type=str, required=True, help='choose a model: Te
 parser.add_argument('-c', '--csv', nargs='+',  help='-c  csv1 csv2 ...')
 parser.add_argument('-p', '--predict',   default=7,  type=int, choices=[1, 7, 30], help='1 | 7 | 30')
 parser.add_argument('-t', '--use_title', default=0,  type=int, help='use title to train')
+parser.add_argument('-o', '--month',     default=0,  type=int, choices=[1, 0], help='month by month')
 parser.add_argument('-l', '--classNu',   default=5,  type=int, choices=[3, 5], help='in class5 or class3')
 parser.add_argument('-a', '--pad_size',  default=32, type=int, help='pad_size')
 parser.add_argument('-m', '--min_freq',  default=5,  type=int, help='min_freq')
@@ -100,6 +101,10 @@ if __name__ == '__main__':
 
     config.dataset = args.dataset
     config.predict = args.predict
+    if args.month == 1:
+        config.month = True
+    else :
+        config.month = False
 
     config.use_title = args.use_title
     config.pad_size = args.pad_size
@@ -133,14 +138,12 @@ if __name__ == '__main__':
     vocab, train_data, test_2020_data, test_data = build_dataset(config, args.ticker)
 
     print("train set %d, 2020 set %d, test set:%d" %(len(train_data), len(test_2020_data), len(test_data)))
-
     train_iter = build_iterator(train_data, config)
     test_2020_iter = build_iterator(test_2020_data, config)
     test_iter = build_iterator(test_data, config)
     data_prepare_time = get_time_dif(start_time)
 
     print("Time usage:", data_prepare_time)
-    # exit()
 
     # train
     config.n_vocab = len(vocab)

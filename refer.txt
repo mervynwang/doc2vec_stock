@@ -1,0 +1,50 @@
+
+A quantitative stock prediction system based on financial news
+	https://www.sciencedirect.com/science/article/abs/pii/S0306457309000478
+
+[B]News Sensitive Stock Trend Prediction
+	https://link.springer.com/chapter/10.1007/3-540-47887-6_48
+
+Stock prediction: Integrating text mining approach using real-time news
+	https://ieeexplore.ieee.org/abstract/document/1196287
+
+Deep learning for stock market prediction from financial news articles
+	https://ieeexplore.ieee.org/abstract/document/7995302
+	2017 IEEE International Conference on Computational Intelligence and Virtual Environments for Measurement Systems and Applications (CIVEMSA)
+
+Deep learning for stock prediction using numerical and textual information
+	https://ieeexplore.ieee.org/abstract/document/7550882
+	Published in: 2016 IEEE/ACIS 15th International Conference on Computer and Information Science (ICIS)
+
+語意分析和長短期記憶用於新聞預測股市未來漲跌走勢
+	https://www.airitilibrary.com/Publication/alDetailedMesh?docid=U0061-1508201815441600
+
+
+基於長短期記憶網路模型之股市趨勢預測
+	http://ir.lib.ncku.edu.tw/handle/987654321/185125
+
+
+
+
+
+Dropout in (Deep) Machine learning
+	https://medium.com/@amarbudhiraja/https-medium-com-amarbudhiraja-learning-less-to-learn-better-dropout-in-deep-machine-learning-74334da4bfc5
+
+	0.2 is actual minima for the this dataset, network and the set parameters used
+
+
+w2v & d2v vector size & train iter
+	https://www.kaggle.com/jerrykuo7727/word2vec
+
+size=100：詞向量的維度大小，維度太小會無法有效表達詞與詞的關係，維度太大會使關係太稀疏而難以找出規則
+Kaggle比賽上常用的詞向量維度介於200到300之間，在此我們先折衷使用size=250
+
+iter=5：訓練的回數，訓練過少會使得詞關係過為鬆散，訓練過度又會使得詞關係過為極端
+當使用較大的詞向量維度時，可能會需要訓練更多次，我們先用iter=10來看看結果
+（實際訓練時，iter只差1就有不小影響，請務必微調這個參數）
+
+sg=0：sg=0時以CBOW來訓練，sg=1時以Skip-gram來訓練
+我們這次作業的目標，是要對文章的主題分類作出預測
+某些詞彙可能只出現在特定的主題當中，所以文本中可能有許多低頻詞
+而在特性上，Skip-gram比CBOW通常對低頻詞有更好的訓練效果
+基於以上的猜想，我們可以嘗試用Skip-gram來訓練詞向量，看看能否得到更高的準確度

@@ -6,6 +6,7 @@ import pickle as pkl
 from tqdm import tqdm
 import time
 from datetime import timedelta
+from datetime import date
 import pandas as pd
 
 pd.options.mode.chained_assignment = None
@@ -53,6 +54,7 @@ def fetch_data(config, test = False ,ticker = ''):
     mask = (df['date'] > start_date) & (df['date'] < end_date)
     mask2 = (df['date'] > end_date)
     df_main = df.loc[mask]
+
     df_2020 = df.loc[mask2]
     if ticker != '':
         df_main = df_main.loc[df_main['ticker'] == ticker]
@@ -61,13 +63,25 @@ def fetch_data(config, test = False ,ticker = ''):
     df_main.sort_values(by='date', inplace=True, ascending=True)
     df_test = [] if test != True else df_main.sample(frac=0.1).copy(deep = True)
 
-    # df_2020 = df_2020.sample(frac=0.5)
+    def ym2no(pd):
+        for index, row in pd.iterrows():
+            d = time.strptime(row['date'], '%Y-%m-%d')
+            y = (int(time.strftime("%Y", d)) - 2013) * 12
+            m = int(time.strftime("%m", d))
+            pd.at[index, "date"] = y + m
+        return pd
+
+    df_2020 = df_2020.sample(frac=0.8)
 
     if test == True :
         drop_index = []
         for row in df_test.itertuples():
             drop_index.append(row.Index)
         df_main = df_main.drop(drop_index)
+
+    df_main = ym2no(df_main)
+    df_2020 = ym2no(df_2020)
+    # df_test = ym2no(df_test)
 
     return df_main, df_2020, df_test
 
@@ -152,7 +166,7 @@ def build_dataset(config, ticker = ''):
         t2 = sequence[t - 2] if t - 2 >= 0 else 0
         return (t2 * 14918087 * 18408749 + t1 * 14918087) % buckets
 
-    def sub_vocab(token, seq_len, label):
+    def sub_vocab(token, seq_len, label, sn):
         words_line = []
         for word in token:
             words_line.append(vocab.get(word, vocab.get(UNK)))
@@ -166,9 +180,9 @@ def build_dataset(config, ticker = ''):
                 bigram.append(biGramHash(words_line, i, buckets))
                 trigram.append(triGramHash(words_line, i, buckets))
             # -----------------
-            return (words_line, int(label), seq_len, bigram, trigram)
+            return (words_line, int(label), seq_len, bigram, trigram, sn)
         else:
-            return (words_line, int(label), seq_len)
+            return (words_line, int(label), seq_len, sn)
 
     def build_set(dl):
         contents = []
@@ -180,6 +194,7 @@ def build_dataset(config, ticker = ''):
         for row in dl.itertuples():
             counter += 1
             label = ''
+            dataSerial = row.date
 
             if config.num_classes == 3:
                 if row._5 == 1 or row._5 == 2:
@@ -210,13 +225,13 @@ def build_dataset(config, ticker = ''):
             if pad_size and len(token) < pad_size:
                 token.extend([PAD] * (pad_size - len(token)))
 
-
             if (clen / pad_size) < 1.2 :
                 token = token[:pad_size]
                 seq_len = pad_size
-                contents.append(sub_vocab(token, seq_len, label))
+                contents.append(sub_vocab(token, seq_len, label, dataSerial))
             else :
                 for i in range(1, math.floor(clen / pad_size)):
+
                     start = (i-1) * pad_size
                     end = i * pad_size
                     if end > clen:
@@ -227,11 +242,12 @@ def build_dataset(config, ticker = ''):
                     seq_len = pad_size
 
                     # print("total %d, i:%d,  start %d, end %d fetch %d" % (clen, i, start, end, len(tmp_token) ))
-                    contents.append(sub_vocab(tmp_token, seq_len, label))
+                    contents.append(sub_vocab(tmp_token, seq_len, label, dataSerial))
 
         avg = sum(token_len) / len(token_len)
         med = np.median(token_len)
-        print("total row %d; word vocab, max_len : %d , avg : %d, median %d split to %d rows" % (counter, max_len, avg, med, len(contents)) )
+        print("total row %d; word vocab, max_len : %d , avg : %d, median %d split to %d rows" %
+            (counter, max_len, avg, med, len(contents)) )
 
         return contents
 
@@ -239,7 +255,10 @@ def build_dataset(config, ticker = ''):
 
 class DatasetIterater(object):
     FastText = False
-    def __init__(self, batches, batch_size, device, fasttext = False):
+    ByMonth = False
+    # serial = []
+    serialNu = []
+    def __init__(self, batches, batch_size, device, fasttext = False, byMonth = True):
         self.batch_size = batch_size
         self.batches = batches
         self.n_batches = len(batches) // batch_size
@@ -249,7 +268,26 @@ class DatasetIterater(object):
         self.index = 0
         self.device = device
         self.oindex = 0
-        self.fasttext = fasttext
+        self.FastText = fasttext
+        self.ByMonth = byMonth
+
+        if self.ByMonth:
+            tmp = 0
+            tmpObj = {'n': 0, 's' : 0, 'e':0 }
+            for i, row in enumerate(batches):
+                if tmp == row[-1:][0] :
+                    continue
+                else:
+                    if tmp != 0:
+                        tmpObj['e'] = i -1
+                        self.serialNu.append(tmpObj)
+
+                    tmp = row[-1:][0]
+
+                    tmpObj = {'n': 0, 's' : 0, 'e':0 }
+                    tmpObj['n'] = tmp
+                    tmpObj['s'] = i
+                    # self.serial.append(tmp)
 
     def _to_tensor(self, datas):
         try:
@@ -257,11 +295,10 @@ class DatasetIterater(object):
             y = torch.LongTensor([_[1] for _ in datas]).to(self.device)
             seq_len = torch.LongTensor([_[2] for _ in datas]).to(self.device)
 
-            if self.fasttext:
+            if self.FastText:
                 bigram = torch.LongTensor([_[3] for _ in datas]).to(self.device)
                 trigram = torch.LongTensor([_[4] for _ in datas]).to(self.device)
                 return (x, seq_len, bigram, trigram), y
-
             else:
                 return (x, seq_len), y
 
@@ -279,20 +316,33 @@ class DatasetIterater(object):
         self.index = self.oindex
 
     def __next__(self):
-        if self.residue and self.index == self.n_batches:
-            batches = self.batches[self.index * self.batch_size: len(self.batches)]
+        if self.ByMonth:
+            if len(self.serialNu) == (self.index -1)  :
+                self.index = 0
+                raise StopIteration
+
+            t = self.serialNu[self.index]
+            batches = self.batches[t['s'] : t['e']]
             self.index += 1
             batches = self._to_tensor(batches)
             return batches
 
-        elif self.index >= self.n_batches:
-            self.index = 0
-            raise StopIteration
-        else:
-            batches = self.batches[self.index * self.batch_size: (self.index + 1) * self.batch_size]
-            self.index += 1
-            batches = self._to_tensor(batches)
-            return batches
+        else :
+            if self.residue and self.index == self.n_batches:
+                batches = self.batches[self.index * self.batch_size: len(self.batches)]
+                self.index += 1
+                batches = self._to_tensor(batches)
+                return batches
+
+            elif self.index >= self.n_batches:
+                self.index = 0
+                raise StopIteration
+
+            else:
+                batches = self.batches[self.index * self.batch_size: (self.index + 1) * self.batch_size]
+                self.index += 1
+                batches = self._to_tensor(batches)
+                return batches
 
     def __iter__(self):
         return self
@@ -305,9 +355,9 @@ class DatasetIterater(object):
 
 def build_iterator(dataset, config):
     if config.model_name == 'FastText':
-        iter = DatasetIterater(dataset, config.batch_size, config.device, True)
+        iter = DatasetIterater(dataset, config.batch_size, config.device, True, config.month)
     else :
-        iter = DatasetIterater(dataset, config.batch_size, config.device)
+        iter = DatasetIterater(dataset, config.batch_size, config.device, False, config.month)
     return iter
 
 def get_time_dif(start_time):

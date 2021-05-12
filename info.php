@@ -35,6 +35,7 @@ $db->exec(
         info_val STRING,
         info_rand STRING,
         report_rand STRING,
+        ps INTEGER,
         inClass INTEGER,
         vs   STRING,
         TimeUsage STRING,
@@ -78,6 +79,7 @@ foreach ($list as $fn) {
     $tmp["acc_val"] = 0;
     $tmp['sw'] = 1;
     $tmp['vs'] = 500;
+    $tmp['ps'] = 0;
     $tmp['batch'] = 128;
     $tmp["report_2020"] = '';
     $tmp["report_rand"] = '';
@@ -100,6 +102,12 @@ foreach ($list as $fn) {
             }
 
             $m = [];
+            if(preg_match('/-a (\d+)/', $tmp['args'], $m)) {
+                $tmp['ps'] = $m[1];
+            } else {
+                $tmp['ps'] = 128;
+            }
+
             if(preg_match('/-b (\d+)/', $tmp['args'], $m)) {
                 $tmp['batch'] = $m[1];
             } else {
@@ -150,7 +158,7 @@ foreach ($list as $fn) {
             dataset, feq, inClass,
             input, sw, p, fn, batch,
             ymd, model ,pre_trained ,TimeUsage ,args,
-            acc_2020 ,acc_val, vs,
+            acc_2020 ,acc_val, vs, ps,
             report_2020, report_rand
             ) VALUES (
             :info_rand, :info_2020, :info_val,
@@ -161,7 +169,7 @@ foreach ($list as $fn) {
             :TimeUsage ,
             :args ,
             :acc_2020 ,
-            :acc_val, :vs,
+            :acc_val, :vs, :ps,
             :report_2020, :report_rand
         )"
     );
